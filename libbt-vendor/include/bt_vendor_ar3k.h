@@ -34,6 +34,16 @@
 #define TRUE   (!FALSE)
 #endif
 
+/* proc fs node for enable/disable lpm mode */
+#ifndef VENDOR_LPM_PROC_NODE
+#define VENDOR_LPM_PROC_NODE "/sys/module/hci_uart/parameters/ath_lpm"
+#endif
+
+/* proc fs node for notifying write request */
+#ifndef VENDOR_BTWRITE_PROC_NODE
+#define VENDOR_BTWRITE_PROC_NODE "/sys/module/hci_uart/parameters/ath_btwrite"
+#endif
+
 // File discriptor using Transport
 extern int fd;
 
