@@ -28,14 +28,21 @@
 #include <fcntl.h>
 #include <termios.h>
 #include "bt_vendor_qcom.h"
-#include "userial_vendor.h"
-
+#include "userial_vendor_qcom.h"
+#include "bt_vendor_ar3k.h"
+#include "userial_vendor_ar3k.h"
+#include "upio.h"
 /******************************************************************************
 **  Externs
 ******************************************************************************/
 extern int hw_config(int nState);
 
 extern int is_hw_ready();
+static const tUSERIAL_CFG userial_init_cfg =
+{
+    (USERIAL_DATABITS_8 | USERIAL_PARITY_NONE | USERIAL_STOPBITS_1),
+    USERIAL_BAUD_115200
+};
 
 /******************************************************************************
 **  Variables
@@ -50,6 +57,7 @@ uint8_t vnd_local_bd_addr[6]={0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 void hw_epilog_process(void);
 #endif
 
+int btSocAth=0;
 
 /******************************************************************************
 **  Local type definitions
@@ -69,14 +77,16 @@ void hw_epilog_process(void);
 static int init(const bt_vendor_callbacks_t* p_cb, unsigned char *local_bdaddr)
 {
     ALOGI("bt-vendor : init");
-
+    btSocAth = is_bt_soc_ath();
     if (p_cb == NULL)
     {
         ALOGE("init failed with no user callbacks!");
         return -1;
     }
-
-    //userial_vendor_init();
+     if(btSocAth)
+     {
+         userial_vendor_init();
+     }
     //upio_init();
 
     //vnd_load_conf(VENDOR_LIB_CONF_FILE);
@@ -104,6 +114,20 @@ static int op(bt_vendor_opcode_t opcode, void *param)
     {
         case BT_VND_OP_POWER_CTRL:
             {
+                if(btSocAth) {
+                    ALOGI("AR3002 ::BT_VND_OP_POWER_CTRL");
+                int *state = (int *) param;
+
+                if (*state == BT_VND_PWR_OFF) {
+                    ALOGI("[//]AR3002 UPIO_BT_POWER_OFF");
+                    upio_set_bluetooth_power(UPIO_BT_POWER_OFF);
+                }
+                else if (*state == BT_VND_PWR_ON){
+                    ALOGI("[//]AR3002 UPIO_BT_POWER_ON");
+                    upio_set_bluetooth_power(UPIO_BT_POWER_ON);
+                }
+                }
+               else {
                 nState = *(int *) param;
                 retval = hw_config(nState);
                 if(nState == BT_VND_PWR_ON
@@ -114,6 +138,7 @@ static int op(bt_vendor_opcode_t opcode, void *param)
                 else {
                     retval = -1;
                 }
+            }
             }
             break;
 
@@ -139,6 +164,19 @@ static int op(bt_vendor_opcode_t opcode, void *param)
 
         case BT_VND_OP_USERIAL_OPEN:
             {
+             if(btSocAth) {
+                 ALOGI("AR3002 ::BT_VND_OP_USERIAL_OPEN ");
+                 int (*fd_array)[] = (int (*)[]) param;
+                 int fd, idx;
+                 fd = userial_vendor_open((tUSERIAL_CFG *) &userial_init_cfg);
+                 if (fd != -1) {
+                     for (idx=0; idx < CH_MAX; idx++)
+                        (*fd_array)[idx] = fd;
+
+                     retval = 1;
+                 }
+             }
+             else{
                 if(bt_hci_init_transport(pFd) != -1){
                     int (*fd_array)[] = (int (*) []) param;
 
@@ -153,11 +191,18 @@ static int op(bt_vendor_opcode_t opcode, void *param)
                 }
                 retval = 2;
             }
+
+            }
             break;
 
         case BT_VND_OP_USERIAL_CLOSE:
-            {
+            {   if(btSocAth) {
+                 ALOGI("AR3002 ::BT_VND_OP_USERIAL_CLOSE ");
+                 userial_vendor_close();
+                 }
+                 else {
                  bt_hci_deinit_transport(pFd);
+                 }
             }
             break;
 
