@@ -25,10 +25,14 @@ BDROID_DIR:= external/bluetooth/bluedroid
 LOCAL_SRC_FILES := \
         src/bt_vendor_qcom.c \
         src/hardware.c \
-        src/userial_vendor_qcom.c \
-        src/hardware_ar3k.c \
-        src/userial_vendor_ar3k.c\
-        src/upio.c
+        src/hci_uart.c \
+        src/hci_smd.c \
+        src/hw_rome.c \
+        src/hw_ar3k.c
+
+ifeq ($(QCOM_BT_USE_SIBS),true)
+LOCAL_CFLAGS += -DQCOM_BT_SIBS_ENABLE
+endif
 
 LOCAL_C_INCLUDES += \
         $(LOCAL_PATH)/include \
