@@ -33,6 +33,11 @@
 #include "bt_vendor_qcom.h"
 #include "hci_uart.h"
 #include "hci_smd.h"
+#include <sys/socket.h>
+#include <cutils/sockets.h>
+#include <linux/un.h>
+
+#define WAIT_TIMEOUT 200000
 
 /******************************************************************************
 **  Externs
@@ -45,6 +50,7 @@ extern int rome_soc_init(int fd, char *bdaddr);
 **  Variables
 ******************************************************************************/
 int pFd[2] = {0,};
+int ant_fd;
 bt_vendor_callbacks_t *bt_vendor_cbacks = NULL;
 uint8_t vnd_local_bd_addr[6]={0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 static int btSocType = BT_SOC_DEFAULT;
@@ -102,6 +108,89 @@ static int get_bt_soc_type()
     return ret;
 }
 
+bool can_perform_action(char action) {
+    bool can_perform = false;
+    char ref_count[PROPERTY_VALUE_MAX];
+    int value, ret;
+
+    property_get("bluetooth.ref_count", ref_count, "0");
+
+    value = atoi(ref_count);
+    ALOGV("%s: ref_count: %s\n",__func__,  ref_count);
+
+    if(action == '1') {
+        ALOGV("%s: on : value is: %d", __func__, value);
+        value++;
+        if (value == 1)
+           can_perform = true;
+        else if (value > 2) return false;
+    } else  {
+        ALOGV("%s: off : value is: %d", __func__, value);
+        value--;
+        if (value == 0)
+           can_perform = true;
+        else if (value < 0) return false;
+    }
+
+    snprintf(ref_count, 3, "%d", value);
+    ALOGV("%s: updated ref_count is: %s", __func__, ref_count);
+
+    ret  = property_set("bluetooth.ref_count", ref_count);
+    if (ret < 0) {
+        ALOGE("%s: Error while updating property: %d\n", __func__, ret);
+        return false;
+    }
+    ALOGV("%s returning %d", __func__, can_perform);
+    return can_perform;
+}
+
+void stop_hci_filter() {
+       char value[PROPERTY_VALUE_MAX] = {'\0'};
+       ALOGV("%s: Entry ", __func__);
+
+       property_get("bluetooth.start_hci", value, "false");
+
+       if (strcmp(value, "false") == 0) {
+           ALOGV("%s: hci_filter has been stopped already", __func__);
+           return;
+       }
+
+       property_set("bluetooth.start_hci", "false");
+       property_set("bluetooth.hci_filter_status", "0");
+       ALOGV("%s: Exit ", __func__);
+}
+
+void start_hci_filter() {
+       ALOGV("%s: Entry ", __func__);
+       int i, init_success = 0;
+       char value[PROPERTY_VALUE_MAX] = {'\0'};
+
+
+       property_get("bluetooth.start_hci", value, false);
+
+       if (strcmp(value, "true") == 0) {
+           ALOGV("%s: hci_filter has been started already", __func__);
+           return;
+       }
+
+       property_set("bluetooth.hci_filter_status", "0");
+
+       property_set("bluetooth.start_hci", "true");
+       //sched_yield();
+       for(i=0; i<45; i++) {
+        property_get("bluetooth.hci_filter_status", value, "0");
+        if (strcmp(value, "1") == 0) {
+               init_success = 1;
+               break;
+           } else {
+               usleep(WAIT_TIMEOUT);
+           }
+        }
+        ALOGV("start_hcifilter status:%d after %f seconds \n", init_success, 0.2*i);
+
+        ALOGV("%s: Exit ", __func__);
+}
+
 /** Bluetooth Controller power up or shutdown */
 static int bt_powerup(int en )
 {
@@ -110,6 +199,7 @@ static int bt_powerup(int en )
     int fd, size, i, ret;
 
     char disable[PROPERTY_VALUE_MAX];
+    char state;
     char on = (en)?'1':'0';
 
     ALOGI("bt_powerup: %c", on);
@@ -147,11 +237,18 @@ static int bt_powerup(int en )
     }
 
     /* Get rfkill State to control */
-    if ((fd = open(rfkill_state, O_WRONLY)) < 0)
+    if ((fd = open(rfkill_state, O_RDWR)) < 0)
     {
         ALOGE("open(%s) for write failed: %s (%d)",rfkill_state, strerror(errno), errno);
         return -1;
     }
+
+    if(can_perform_action(on) == false) {
+        ALOGE("%s:can't perform action as it is being used by other clients", __func__);
+        goto done;
+    }
+
+    ALOGE("Write %c to rfkill\n", on);
 
     /* Write value to control rfkill */
     if ((size = write(fd, &on, 1)) < 0) {
@@ -159,6 +256,13 @@ static int bt_powerup(int en )
         return -1;
     }
 
+    if(on == '0'){
+        ALOGE("Stopping HCI filter as part of CTRL:OFF");
+        stop_hci_filter();
+        property_set("bluetooth.soc_initialized", "0");
+    }
+
+done:
     if (fd >= 0)
         close(fd);
 
@@ -220,12 +324,59 @@ static int init(const bt_vendor_callbacks_t* p_cb, unsigned char *local_bdaddr)
     return 0;
 }
 
+
+
+int connect_to_local_socket(char* name) {
+       socklen_t len; int sk = -1;
+
+       ALOGE("%s: ACCEPT ", __func__);
+       sk  = socket(AF_LOCAL, SOCK_STREAM, 0);
+       if (sk < 0) {
+           ALOGE("Socket creation failure");
+           return -1;
+       }
+
+        if(socket_local_client_connect(sk, name,
+            ANDROID_SOCKET_NAMESPACE_ABSTRACT, SOCK_STREAM) < 0)
+        {
+             ALOGE("failed to connect (%s)", strerror(errno));
+             close(sk);
+             sk = -1;
+        } else {
+                ALOGE("%s: Connection succeeded\n", __func__);
+        }
+        return sk;
+}
+
+bool is_soc_initialized() {
+    bool init = false;
+    char init_value[PROPERTY_VALUE_MAX];
+    int ret;
+
+    ALOGI("bt-vendor : is_soc_initialized");
+
+    ret = property_get("bluetooth.soc_initialized", init_value, NULL);
+    if (ret != 0) {
+        ALOGI("bluetooth.soc_initialized set to %s\n", init_value);
+        if (!strncasecmp(init_value, "1", sizeof("1"))) {
+            init = true;
+        }
+    }
+    else {
+        ALOGE("%s: Failed to get bluetooth.soc_initialized", __FUNCTION__);
+    }
+
+    return init;
+}
+
+
 /** Requested operations */
 static int op(bt_vendor_opcode_t opcode, void *param)
 {
     int retval = 0;
     int nCnt = 0;
     int nState = -1;
+    bool is_ant_req = false;
 
     ALOGV("bt-vendor : op for %d", opcode);
 
@@ -280,8 +431,14 @@ static int op(bt_vendor_opcode_t opcode, void *param)
             }
             break;
 
+        case BT_VND_OP_ANT_USERIAL_OPEN:
+                ALOGI("bt-vendor : BT_VND_OP_ANT_USERIAL_OPEN");
+                is_ant_req = true;
+                //fall through
         case BT_VND_OP_USERIAL_OPEN:
             {
+                int (*fd_array)[] = (int (*)[]) param;
+                int idx, fd;
                 ALOGI("bt-vendor : BT_VND_OP_USERIAL_OPEN");
                 switch(btSocType)
                 {
@@ -302,35 +459,69 @@ static int op(bt_vendor_opcode_t opcode, void *param)
                             retval = 2;
                         }
                         break;
-                    case BT_SOC_ROME:
                     case BT_SOC_AR3K:
                         {
-                            int (*fd_array)[] = (int (*)[]) param;
-                            int idx, fd;
                             fd = userial_vendor_open((tUSERIAL_CFG *) &userial_init_cfg);
                             if (fd != -1) {
                                 for (idx=0; idx < CH_MAX; idx++)
                                     (*fd_array)[idx] = fd;
                                      retval = 1;
                             }
-                            else
+                            else {
                                 retval = -1;
+                                break;
+                            }
 
                             /* Vendor Specific Process should happened during userial_open process
                                 After userial_open, rx read thread is running immediately,
                                 so it will affect VS event read process.
                             */
-                            switch (btSocType)
-                            {
-                                case BT_SOC_ROME:
-                                    if(rome_soc_init(fd,vnd_local_bd_addr)<0)
+                            if(ath3k_init(fd,3000000,115200,NULL,&vnd_userial.termios)<0)
+                                retval = -1;
+                        }
+                        break;
+                    case BT_SOC_ROME:
+                        {
+                            if (!is_soc_initialized()) {
+                                fd = userial_vendor_open((tUSERIAL_CFG *) &userial_init_cfg);
+                                if (fd < 0) {
+                                    ALOGE("userial_vendor_open returns err");
+                                    retval = -1;
+                                } else {
+                                    ALOGV("rome_soc_init is started");
+                                    property_set("bluetooth.soc_initialized", "0");
+                                    if(rome_soc_init(fd,vnd_local_bd_addr)<0) {
                                         retval = -1;
-                                    break;
-                                case BT_SOC_AR3K:
-                                    if(ath3k_init(fd,3000000,115200,NULL,&vnd_userial.termios)<0)
-                                        retval = -1;
-                                    break;
+                                    } else {
+                                        ALOGV("rome_soc_init is completed");
+                                        property_set("bluetooth.soc_initialized", "1");
+                                        /*Close the UART port*/
+                                        close(fd);
+                                    }
+                                }
                             }
+
+                            if (retval != -1) {
+                                 start_hci_filter();
+                                 if (is_ant_req) {
+                                     ALOGV("connect to ant channel");
+                                     ant_fd = fd = connect_to_local_socket("ant_sock");
+                                 } else {
+                                     ALOGV("connect to bt channel");
+                                     vnd_userial.fd = fd = connect_to_local_socket("bt_sock");
+                                 }
+
+                                 if (fd != -1) {
+                                     ALOGV("%s: received the socket fd: %d is_ant_req: %d\n",
+                                                                 __func__, fd, is_ant_req);
+                                     for (idx=0; idx < CH_MAX; idx++)
+                                          (*fd_array)[idx] = fd;
+                                          retval = 1;
+                                     }
+                                 else {
+                                     retval = -1;
+                                 }
+                             }
                         }
                         break;
                     default:
@@ -340,8 +531,19 @@ static int op(bt_vendor_opcode_t opcode, void *param)
             }
             break;
 
+        case BT_VND_OP_ANT_USERIAL_CLOSE:
+            {
+                ALOGI("bt-vendor : BT_VND_OP_ANT_USERIAL_CLOSE");
+                if (ant_fd != -1) {
+                    ALOGE("closing ant_fd");
+                    close(ant_fd);
+                    ant_fd = -1;
+                }
+            }
+            break;
         case BT_VND_OP_USERIAL_CLOSE:
             {
+                ALOGI("bt-vendor : BT_VND_OP_USERIAL_CLOSE btSocType: %d", btSocType);
                 switch(btSocType)
                 {
                     case BT_SOC_DEFAULT:
