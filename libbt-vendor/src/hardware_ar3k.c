@@ -50,6 +50,7 @@ extern "C" {
 
 #include "bt_hci_bdroid.h"
 #include "bt_vendor_ar3k.h"
+#include "upio.h"
 
 #define MAX_CNT_RETRY 100
 
@@ -163,6 +164,21 @@ char ps_file[PATH_MAX];
 FILE *stream;
 int tag_count=0;
 
+/* for friendly debugging outpout string */
+static char *lpm_mode[] = {
+    "UNKNOWN",
+    "disabled",
+    "enabled"
+};
+
+static char *lpm_state[] = {
+    "UNKNOWN",
+    "de-asserted",
+    "asserted"
+};
+
+static uint8_t upio_state[UPIO_MAX_COUNT];
+
 typedef struct {
 	uint8_t b[6];
 } __attribute__((packed)) bdaddr_t;
@@ -233,6 +249,8 @@ struct ps_cfg_entry ps_list[MAX_TAGS];
 #ifdef __cplusplus
 }
 #endif
+
+int read_hci_event(int fd, unsigned char* buf, int size);
 
 int is_bt_soc_ath() {
 	int ret = 0;
@@ -1560,5 +1578,106 @@ int hw_config_ath3k(char *port_name)
 	}
 
 	return n;
+}
+
+void lpm_set_ar3k(uint8_t pio, uint8_t action, uint8_t polarity)
+{
+    int rc;
+    int fd = -1;
+    char buffer;
+
+    ALOGI("lpm mode: %d  action: %d", pio, action);
+
+    switch (pio)
+    {
+        case UPIO_LPM_MODE:
+            if (upio_state[UPIO_LPM_MODE] == action)
+            {
+                ALOGI("LPM is %s already", lpm_mode[action]);
+                return;
+            }
+
+            fd = open(VENDOR_LPM_PROC_NODE, O_WRONLY);
+
+            if (fd < 0)
+            {
+                ALOGE("upio_set : open(%s) for write failed: %s (%d)",
+                        VENDOR_LPM_PROC_NODE, strerror(errno), errno);
+                return;
+            }
+
+            if (action == UPIO_ASSERT)
+            {
+                buffer = '1';
+            }
+            else
+            {
+                buffer = '0';
+            }
+
+            if (write(fd, &buffer, 1) < 0)
+            {
+                ALOGE("upio_set : write(%s) failed: %s (%d)",
+                        VENDOR_LPM_PROC_NODE, strerror(errno),errno);
+            }
+            else
+            {
+                upio_state[UPIO_LPM_MODE] = action;
+                ALOGI("LPM is set to %s", lpm_mode[action]);
+            }
+
+            if (fd >= 0)
+                close(fd);
+
+            break;
+
+        case UPIO_BT_WAKE:
+            /* UPIO_DEASSERT should be allowed because in Rx case assert occur
+             * from the remote side where as deassert  will be initiated from Host
+             */
+            if ((action == UPIO_ASSERT) && (upio_state[UPIO_BT_WAKE] == action))
+            {
+                ALOGI("BT_WAKE is %s already", lpm_state[action]);
+
+                return;
+            }
+
+            if (action == UPIO_DEASSERT)
+              buffer = '0';
+            else
+              buffer = '1';
+
+            fd = open(VENDOR_BTWRITE_PROC_NODE, O_WRONLY);
+
+            if (fd < 0)
+            {
+                ALOGE("upio_set : open(%s) for write failed: %s (%d)",
+                        VENDOR_BTWRITE_PROC_NODE, strerror(errno), errno);
+                return;
+            }
+
+            if (write(fd, &buffer, 1) < 0)
+            {
+                ALOGE("upio_set : write(%s) failed: %s (%d)",
+                        VENDOR_BTWRITE_PROC_NODE, strerror(errno),errno);
+            }
+            else
+            {
+                upio_state[UPIO_BT_WAKE] = action;
+                ALOGI("BT_WAKE is set to %s", lpm_state[action]);
+            }
+
+            ALOGI("proc btwrite assertion");
+
+            if (fd >= 0)
+                close(fd);
+
+            break;
+
+        case UPIO_HOST_WAKE:
+            ALOGI("upio_set: UPIO_HOST_WAKE");
+            break;
+    }
+
 }
 

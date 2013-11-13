@@ -48,6 +48,7 @@ static const tUSERIAL_CFG userial_init_cfg =
 **  Variables
 ******************************************************************************/
 int pFd[2] = {0,};
+
 bt_hci_transport_device_type bt_hci_transport_device;
 
 bt_vendor_callbacks_t *bt_vendor_cbacks = NULL;
@@ -78,16 +79,16 @@ static int init(const bt_vendor_callbacks_t* p_cb, unsigned char *local_bdaddr)
 {
     ALOGI("bt-vendor : init");
     btSocAth = is_bt_soc_ath();
-    if (p_cb == NULL)
-    {
+
+    if (p_cb == NULL) {
         ALOGE("init failed with no user callbacks!");
         return -1;
     }
-     if(btSocAth)
-     {
-         userial_vendor_init();
-     }
-    //upio_init();
+
+    if(btSocAth) {
+        userial_vendor_init();
+        upio_init();
+    }
 
     //vnd_load_conf(VENDOR_LIB_CONF_FILE);
 
@@ -114,42 +115,42 @@ static int op(bt_vendor_opcode_t opcode, void *param)
     {
         case BT_VND_OP_POWER_CTRL:
             {
-                if(btSocAth) {
-                    ALOGI("AR3002 ::BT_VND_OP_POWER_CTRL");
-                int *state = (int *) param;
+                if (btSocAth) {
+                    int *state = (int *) param;
 
-                if (*state == BT_VND_PWR_OFF) {
-                    ALOGI("[//]AR3002 UPIO_BT_POWER_OFF");
-                    upio_set_bluetooth_power(UPIO_BT_POWER_OFF);
-                }
-                else if (*state == BT_VND_PWR_ON){
-                    ALOGI("[//]AR3002 UPIO_BT_POWER_ON");
-                    upio_set_bluetooth_power(UPIO_BT_POWER_ON);
-                }
-                }
-               else {
-                nState = *(int *) param;
-                retval = hw_config(nState);
-                if(nState == BT_VND_PWR_ON
-                   && retval == 0
-                   && is_hw_ready() == TRUE){
-                    retval = 0;
+                    ALOGI("BT_VND_OP_POWER_CTRL State: %d ", *state);
+
+                    if (*state == BT_VND_PWR_OFF) {
+                        upio_set_bluetooth_power(UPIO_BT_POWER_OFF);
+                    }
+                    else if (*state == BT_VND_PWR_ON) {
+                        upio_set_bluetooth_power(UPIO_BT_POWER_ON);
+                    }
                 }
                 else {
-                    retval = -1;
+                    nState = *(int *) param;
+
+                    retval = hw_config(nState);
+                    if (nState == BT_VND_PWR_ON
+                         && retval == 0
+                         && is_hw_ready() == TRUE) {
+                        retval = 0;
+                    }
+                    else {
+                        retval = -1;
+                    }
                 }
-            }
             }
             break;
 
         case BT_VND_OP_FW_CFG:
             {
                 // call hciattach to initalize the stack
-                if(bt_vendor_cbacks){
-                   ALOGI("Bluetooth Firmware and smd is initialized");
+                if (bt_vendor_cbacks) {
+                   ALOGI("Bluetooth Firmware and transport is initialized");
                    bt_vendor_cbacks->fwcfg_cb(BT_VND_OP_RESULT_SUCCESS);
                 }
-                else{
+                else {
                    ALOGE("Error : hci, smd initialization Error");
                    bt_vendor_cbacks->fwcfg_cb(BT_VND_OP_RESULT_FAIL);
                 }
@@ -164,58 +165,87 @@ static int op(bt_vendor_opcode_t opcode, void *param)
 
         case BT_VND_OP_USERIAL_OPEN:
             {
-             if(btSocAth) {
-                 ALOGI("AR3002 ::BT_VND_OP_USERIAL_OPEN ");
-                 int (*fd_array)[] = (int (*)[]) param;
-                 int fd, idx;
-                 fd = userial_vendor_open((tUSERIAL_CFG *) &userial_init_cfg);
-                 if (fd != -1) {
-                     for (idx=0; idx < CH_MAX; idx++)
-                        (*fd_array)[idx] = fd;
+                 if (btSocAth) {
+                     int (*fd_array)[] = (int (*)[]) param;
+                     int fd, idx;
 
-                     retval = 1;
+                     ALOGI("BT_VND_OP_USERIAL_OPEN ");
+                     fd = userial_vendor_open((tUSERIAL_CFG *) &userial_init_cfg);
+                     if (fd != -1) {
+                         for (idx=0; idx < CH_MAX; idx++)
+                            (*fd_array)[idx] = fd;
+
+                         retval = 1;
+                     }
                  }
-             }
-             else{
-                if(bt_hci_init_transport(pFd) != -1){
-                    int (*fd_array)[] = (int (*) []) param;
+                 else {
+                     if (bt_hci_init_transport(pFd) != -1) {
+                         int (*fd_array)[] = (int (*) []) param;
 
-                        (*fd_array)[CH_CMD] = pFd[0];
-                        (*fd_array)[CH_EVT] = pFd[0];
-                        (*fd_array)[CH_ACL_OUT] = pFd[1];
-                        (*fd_array)[CH_ACL_IN] = pFd[1];
-                }
-                else {
-                    retval = -1;
-                    break;
-                }
-                retval = 2;
-            }
+                         (*fd_array)[CH_CMD] = pFd[0];
+                         (*fd_array)[CH_EVT] = pFd[0];
+                         (*fd_array)[CH_ACL_OUT] = pFd[1];
+                         (*fd_array)[CH_ACL_IN] = pFd[1];
+                     }
+                     else {
+                         retval = -1;
+                         break;
+                     }
+                     retval = 2;
+                 }
 
             }
             break;
 
         case BT_VND_OP_USERIAL_CLOSE:
-            {   if(btSocAth) {
-                 ALOGI("AR3002 ::BT_VND_OP_USERIAL_CLOSE ");
-                 userial_vendor_close();
-                 }
-                 else {
-                 bt_hci_deinit_transport(pFd);
-                 }
+            {
+                if (btSocAth) {
+                    ALOGI("AR3002 ::BT_VND_OP_USERIAL_CLOSE ");
+                    userial_vendor_close();
+                }
+                else {
+                    bt_hci_deinit_transport(pFd);
+                }
             }
             break;
 
         case BT_VND_OP_GET_LPM_IDLE_TIMEOUT:
+            {
+                if (btSocAth) {
+                    uint32_t *timeout_ms = (uint32_t *) param;
+                    *timeout_ms = 1000;
+                }
+            }
             break;
 
         case BT_VND_OP_LPM_SET_MODE:
-            {
+            ALOGI("BT_VND_OP_LPM_SET_MODE");
+
+            if(btSocAth) {
+                uint8_t *mode = (uint8_t *) param;
+
+                if (*mode) {
+                    lpm_set_ar3k(UPIO_LPM_MODE, UPIO_ASSERT, 0);
+                }
+                else {
+                    lpm_set_ar3k(UPIO_LPM_MODE, UPIO_DEASSERT, 0);
+                }
+
+                bt_vendor_cbacks->lpm_cb(BT_VND_OP_RESULT_SUCCESS);
+            }
+            else {
                 bt_vendor_cbacks->lpm_cb(BT_VND_OP_RESULT_SUCCESS); //dummy
             }
             break;
 
         case BT_VND_OP_LPM_WAKE_SET_STATE:
+
+            if(btSocAth) {
+                uint8_t *state = (uint8_t *) param;
+                uint8_t wake_assert = (*state == BT_VND_LPM_WAKE_ASSERT) ? \
+                                            UPIO_ASSERT : UPIO_DEASSERT;
+                lpm_set_ar3k(UPIO_BT_WAKE, wake_assert, 0);
+            }
             break;
         case BT_VND_OP_EPILOG:
             {
@@ -239,8 +269,9 @@ static void cleanup( void )
 {
     ALOGI("cleanup");
 
-    //upio_cleanup();
-
+    if(btSocAth) {
+        upio_cleanup();
+    }
     bt_vendor_cbacks = NULL;
 }
 
