@@ -92,16 +92,16 @@ int bt_hci_init_transport_id (int chId )
 
   while ((-1 == fd) && (retry < 7)) {
     ALOGE("init_transport: Cannot open %s: %s\n. Retry after 2 seconds",
-        bt_hci_transport_device.name, strerror(errno));
+        s_pszDevSmd[chId], strerror(errno));
     usleep(2000000);
-    fd = open(bt_hci_transport_device.name, (O_RDWR | O_NOCTTY));
+    fd = open(s_pszDevSmd[chId], (O_RDWR | O_NOCTTY));
     retry++;
   }
 
   if (-1 == fd)
   {
     ALOGE("init_transport: Cannot open %s: %s\n",
-        bt_hci_transport_device.name, strerror(errno));
+        s_pszDevSmd[chId], strerror(errno));
     return -1;
   }
 
@@ -115,7 +115,7 @@ int bt_hci_init_transport_id (int chId )
 
   if (tcflush(fd, TCIOFLUSH) < 0)
   {
-    ALOGE("init_uart: Cannot flush %s\n", bt_hci_transport_device.name);
+    ALOGE("init_uart: Cannot flush %s\n", s_pszDevSmd[chId]);
     close(fd);
     return -1;
   }
