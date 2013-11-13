@@ -96,7 +96,7 @@ static int get_bt_soc_type()
     }
     else {
         ALOGE("%s: Failed to get soc type", __FUNCTION__);
-        ret = -1;
+        ret = BT_SOC_DEFAULT;
     }
 
     return ret;
@@ -107,7 +107,7 @@ static int bt_powerup(int en )
 {
     char rfkill_type[64];
     char type[16];
-    int fd, size, i;
+    int fd, size, i, ret;
 
     char disable[PROPERTY_VALUE_MAX];
     char on = (en)?'1':'0';
@@ -115,8 +115,11 @@ static int bt_powerup(int en )
     ALOGI("bt_powerup: %c", on);
 
     /* Check if rfkill has been disabled */
-    property_get("ro.rfkilldisabled", disable, "0");
-
+    ret = property_get("ro.rfkilldisabled", disable, "0");
+    if (!ret ){
+        ALOGE("Couldn't get ro.rfkilldisabled (%d)", ret);
+        return -1;
+    }
     /* In case rfkill disabled, then no control power*/
     if (strcmp(disable, "1") == 0) {
         ALOGI("ro.rfkilldisabled : %s", disable);
@@ -246,6 +249,7 @@ static int op(bt_vendor_opcode_t opcode, void *param)
                         else {
                             retval = -1;
                         }
+                        break;
                     case BT_SOC_ROME:
                     case BT_SOC_AR3K:
                         /* BT Chipset Power Control through Device Tree Node */
