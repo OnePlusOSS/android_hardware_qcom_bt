@@ -16,7 +16,7 @@
 
 /******************************************************************************
  *
- *  Filename:      userial_vendor.c
+ *  Filename:      userial_vendor_qcom.c
  *
  *  Description:   Contains vendor-specific userial functions
  *
@@ -30,12 +30,13 @@
 #include <errno.h>
 #include <stdio.h>
 #include "bt_vendor_qcom.h"
-#include "userial_vendor.h"
+#include "userial_vendor_qcom.h"
+#include "cutils/properties.h"
 
 bt_hci_transport_device_type bt_hci_set_transport()
 {
     int ret;
-    char transport_type[10] = {0,};
+    char transport_type[PROPERTY_VALUE_MAX] = {0,};
     bt_hci_transport_device_type bt_hci_transport_device;
 
     ret = property_get("ro.qualcomm.bt.hci_transport", transport_type, NULL);

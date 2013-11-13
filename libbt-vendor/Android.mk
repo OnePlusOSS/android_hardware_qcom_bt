@@ -16,7 +16,7 @@
 
 LOCAL_PATH := $(call my-dir)
 
-ifneq ($(BOARD_HAVE_BLUETOOTH_QCOM),)
+ifeq ($(BOARD_HAVE_BLUETOOTH_QCOM),true)
 
 include $(CLEAR_VARS)
 
@@ -25,7 +25,10 @@ BDROID_DIR:= external/bluetooth/bluedroid
 LOCAL_SRC_FILES := \
         src/bt_vendor_qcom.c \
         src/hardware.c \
-        src/userial_vendor.c
+        src/userial_vendor_qcom.c \
+        src/hardware_ar3k.c \
+        src/userial_vendor_ar3k.c\
+        src/upio.c
 
 LOCAL_C_INCLUDES += \
         $(LOCAL_PATH)/include \

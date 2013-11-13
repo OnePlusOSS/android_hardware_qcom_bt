@@ -1,34 +1,37 @@
 /******************************************************************************
  *
- *  Copyright (C) 2009-2012 Broadcom Corporation
+ *  Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ *  Not a Contribution.
  *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at:
+ *  Copyright 2012 The Android Open Source Project
+ *
+ *  Licensed under the Apache License, Version 2.0 (the "License"); you
+ *  may not use this file except in compliance with the License. You may
+ *  obtain a copy of the License at
  *
  *  http://www.apache.org/licenses/LICENSE-2.0
  *
  *  Unless required by applicable law or agreed to in writing, software
  *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+ *  implied. See the License for the specific language governing
+ *  permissions and limitations under the License.
  *
  ******************************************************************************/
 
 /******************************************************************************
  *
- *  Filename:      userial_vendor.h
+ *  Filename:      userial_vendor_ar3k.h
  *
  *  Description:   Contains vendor-specific definitions used in serial port
  *                 controls
  *
  ******************************************************************************/
 
-#ifndef USERIAL_VENDOR_H
-#define USERIAL_VENDOR_H
+#ifndef USERIAL_VENDOR_AR3K_H
+#define USERIAL_VENDOR_AR3K_H
 
-#include "bt_vendor_qcom.h"
+#include "bt_vendor_ar3k.h"
 #include "userial.h"
 
 /******************************************************************************
@@ -171,5 +174,5 @@ void userial_vendor_set_baud(uint8_t userial_baud);
 *******************************************************************************/
 void userial_vendor_ioctl(userial_vendor_ioctl_op_t op, void *p_data);
 
-#endif /* USERIAL_VENDOR_H */
+#endif /* USERIAL_VENDOR_AR3K_H */
 
