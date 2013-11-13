@@ -24,7 +24,7 @@
  *
  ******************************************************************************/
 
-#define LOG_TAG "bt_hwcfg"
+#define LOG_TAG "bt_vendor"
 
 #include <utils/Log.h>
 #include <sys/types.h>
@@ -176,5 +176,3 @@ void hw_epilog_process(void)
     }
 }
 #endif // (HW_NEED_END_WITH_HCI_RESET == TRUE)
-
-

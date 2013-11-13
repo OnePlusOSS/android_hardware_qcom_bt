@@ -20,7 +20,6 @@
 #include "bt_vendor_lib.h"
 #include "vnd_buildcfg.h"
 #include "utils.h"
-#include "userial_vendor_qcom.h"
 
 #ifndef FALSE
 #define FALSE  0
@@ -30,10 +29,15 @@
 #define TRUE   (!FALSE)
 #endif
 
-// File discriptor using Transport
-extern int fd;
+typedef enum {
+    BT_SOC_DEFAULT = 0,
+    BT_SOC_SMD = BT_SOC_DEFAULT,
+    BT_SOC_ROME,
+    BT_SOC_AR3K,
+    /* Add chipset type here */
+    BT_SOC_RESERVED
+}bt_soc_type;
 
-extern bt_hci_transport_device_type bt_hci_transport_device;
 
 extern bt_vendor_callbacks_t *bt_vendor_cbacks;
 /* HW_NEED_END_WITH_HCI_RESET
@@ -53,5 +57,5 @@ extern bt_vendor_callbacks_t *bt_vendor_cbacks;
 #define HCI_EVT_CMD_CMPL_STATUS_RET_BYTE   5
 #define HCI_EVT_CMD_CMPL_OPCODE        3
 
-#endif /* BT_VENDOR_BRCM_H */
+#endif /* BT_VENDOR_QCOM_H */
 
