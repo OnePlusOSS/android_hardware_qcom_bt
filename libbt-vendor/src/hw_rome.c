@@ -1353,7 +1353,14 @@ int rome_soc_init(int fd, char *bdaddr)
                 }
                 ALOGI("%s: Download TLV file successfully ", __FUNCTION__);
 
-                /* HCI Reset will be implemented by Bluedroid Stack */
+                /* Perform HCI reset here*/
+                err = rome_hci_reset_req(fd);
+                if ( err <0 ) {
+                    ALOGE("HCI Reset Failed !!");
+                    goto error;
+                }
+
+                ALOGI("HCI Reset is done\n");
             }
             break;
         case ROME_VER_UNKNOWN:
