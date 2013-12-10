@@ -1274,6 +1274,26 @@ error:
 
 }
 
+static void enable_controller_log (int fd)
+{
+   int ret = 0;
+   /* VS command to enable controller logging to the HOST. By default it is disabled */
+   unsigned char cmd[6] = {0x01, 0x17, 0xFC, 0x02, 0x00, 0x00};
+   unsigned char rsp[HCI_MAX_EVENT_SIZE];
+   char value[PROPERTY_VALUE_MAX] = {'\0'};
+
+   property_get("enablebtsoclog", value, "false");
+
+   // value at cmd[5]: 1 - to enable, 0 - to disable
+   ret = (strcmp(value, "true") == 0) ? cmd[5] = 0x01: 0;
+   ALOGI("%s: %d", __func__, ret);
+
+   ret = hci_send_vs_cmd(fd, (unsigned char *)cmd, rsp, 6);
+   if (ret != 6) {
+     ALOGE("%s: command failed", __func__);
+   }
+}
+
 int rome_soc_init(int fd, char *bdaddr)
 {
     int err = -1, size = 0;
@@ -1361,6 +1381,15 @@ int rome_soc_init(int fd, char *bdaddr)
                 }
 
                 ALOGI("HCI Reset is done\n");
+
+                /* This function sends a vendor specific command to enable/disable
+                 * controller logs on need. Once the command is received to the SOC,
+                 * It would start sending cotroller's print strings and LMP RX/TX
+                 * packets to the HOST (over the UART) which will be logged in QXDM.
+                 * The property 'enablebtsoclog' used to send this command on BT init
+                 * sequence.
+                 */
+                enable_controller_log(fd);
             }
             break;
         case ROME_VER_UNKNOWN:
