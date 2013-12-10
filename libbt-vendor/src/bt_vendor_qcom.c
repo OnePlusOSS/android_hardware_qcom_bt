@@ -113,7 +113,7 @@ bool can_perform_action(char action) {
     char ref_count[PROPERTY_VALUE_MAX];
     int value, ret;
 
-    property_get("bluetooth.ref_count", ref_count, "0");
+    property_get("wc_transport.ref_count", ref_count, "0");
 
     value = atoi(ref_count);
     ALOGV("%s: ref_count: %s\n",__func__,  ref_count);
@@ -135,7 +135,7 @@ bool can_perform_action(char action) {
     snprintf(ref_count, 3, "%d", value);
     ALOGV("%s: updated ref_count is: %s", __func__, ref_count);
 
-    ret  = property_set("bluetooth.ref_count", ref_count);
+    ret  = property_set("wc_transport.ref_count", ref_count);
     if (ret < 0) {
         ALOGE("%s: Error while updating property: %d\n", __func__, ret);
         return false;
@@ -148,15 +148,15 @@ void stop_hci_filter() {
        char value[PROPERTY_VALUE_MAX] = {'\0'};
        ALOGV("%s: Entry ", __func__);
 
-       property_get("bluetooth.start_hci", value, "false");
+       property_get("wc_transport.start_hci", value, "false");
 
        if (strcmp(value, "false") == 0) {
            ALOGV("%s: hci_filter has been stopped already", __func__);
            return;
        }
 
-       property_set("bluetooth.start_hci", "false");
-       property_set("bluetooth.hci_filter_status", "0");
+       property_set("wc_transport.start_hci", "false");
+       property_set("wc_transport.hci_filter_status", "0");
        ALOGV("%s: Exit ", __func__);
 }
 
@@ -166,20 +166,20 @@ void start_hci_filter() {
        char value[PROPERTY_VALUE_MAX] = {'\0'};
 
 
-       property_get("bluetooth.start_hci", value, false);
+       property_get("wc_transport.start_hci", value, false);
 
        if (strcmp(value, "true") == 0) {
            ALOGV("%s: hci_filter has been started already", __func__);
            return;
        }
 
-       property_set("bluetooth.hci_filter_status", "0");
+       property_set("wc_transport.hci_filter_status", "0");
 
-       property_set("bluetooth.start_hci", "true");
+       property_set("wc_transport.start_hci", "true");
        //sched_yield();
        for(i=0; i<45; i++) {
-        property_get("bluetooth.hci_filter_status", value, "0");
-        if (strcmp(value, "1") == 0) {
+          property_get("wc_transport.hci_filter_status", value, "0");
+          if (strcmp(value, "1") == 0) {
                init_success = 1;
                break;
            } else {
@@ -259,7 +259,7 @@ static int bt_powerup(int en )
     if(on == '0'){
         ALOGE("Stopping HCI filter as part of CTRL:OFF");
         stop_hci_filter();
-        property_set("bluetooth.soc_initialized", "0");
+        property_set("wc_transport.soc_initialized", "0");
     }
 
 done:
@@ -355,15 +355,15 @@ bool is_soc_initialized() {
 
     ALOGI("bt-vendor : is_soc_initialized");
 
-    ret = property_get("bluetooth.soc_initialized", init_value, NULL);
+    ret = property_get("wc_transport.soc_initialized", init_value, NULL);
     if (ret != 0) {
-        ALOGI("bluetooth.soc_initialized set to %s\n", init_value);
+        ALOGI("wc_transport.soc_initialized set to %s\n", init_value);
         if (!strncasecmp(init_value, "1", sizeof("1"))) {
             init = true;
         }
     }
     else {
-        ALOGE("%s: Failed to get bluetooth.soc_initialized", __FUNCTION__);
+        ALOGE("%s: Failed to get wc_transport.soc_initialized", __FUNCTION__);
     }
 
     return init;
@@ -489,12 +489,12 @@ static int op(bt_vendor_opcode_t opcode, void *param)
                                     retval = -1;
                                 } else {
                                     ALOGV("rome_soc_init is started");
-                                    property_set("bluetooth.soc_initialized", "0");
+                                    property_set("wc_transport.soc_initialized", "0");
                                     if(rome_soc_init(fd,vnd_local_bd_addr)<0) {
                                         retval = -1;
                                     } else {
                                         ALOGV("rome_soc_init is completed");
-                                        property_set("bluetooth.soc_initialized", "1");
+                                        property_set("wc_transport.soc_initialized", "1");
                                         /*Close the UART port*/
                                         close(fd);
                                     }
@@ -641,6 +641,34 @@ static int op(bt_vendor_opcode_t opcode, void *param)
     return retval;
 }
 
+static void ssr_cleanup(void) {
+    int pwr_state=BT_VND_PWR_OFF;
+
+    ALOGI("ssr_cleanup");
+
+    if ((btSocType = get_bt_soc_type()) < 0) {
+        ALOGE("%s: Failed to detect BT SOC Type", __FUNCTION__);
+        return -1;
+    }
+
+    if (btSocType == BT_SOC_ROME) {
+
+        /*Close both ANT and BT channels*/
+        op(BT_VND_OP_ANT_USERIAL_CLOSE, NULL);
+        op(BT_VND_OP_USERIAL_CLOSE, NULL);
+        /*CTRL OFF twice to make sure hw
+         * turns off*/
+        op(BT_VND_OP_POWER_CTRL, &pwr_state);
+
+    }
+
+    /*Generally switching of chip should be enough*/
+    op(BT_VND_OP_POWER_CTRL, &pwr_state);
+
+    bt_vendor_cbacks = NULL;
+}
+
+
 /** Closes the interface */
 static void cleanup( void )
 {
@@ -653,5 +681,6 @@ const bt_vendor_interface_t BLUETOOTH_VENDOR_LIB_INTERFACE = {
     sizeof(bt_vendor_interface_t),
     init,
     op,
-    cleanup
+    cleanup,
+    ssr_cleanup
 };
