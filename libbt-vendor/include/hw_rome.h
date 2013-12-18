@@ -133,6 +133,8 @@
 #define ROME_FW_PATH        "/system/etc/firmware/rampatch.img"
 #define ROME_RAMPATCH_TLV_PATH      "/system/etc/firmware/rampatch_tlv.img"
 #define ROME_NVM_TLV_PATH         "/system/etc/firmware/nvm_tlv.bin"
+#define ROME_RAMPATCH_TLV_1_0_3_PATH    "/system/etc/firmware/rampatch_tlv_1.3.tlv"
+#define ROME_NVM_TLV_1_0_3_PATH         "/system/etc/firmware/nvm_tlv_1.3.bin"
 
 /******************************************************************************
 **  Local type definitions
@@ -209,6 +211,7 @@ enum{
 enum{
     ROME_VER_UNKNOWN = 0,
     ROME_VER_1_0 = 0x0100,
-    ROME_VER_1_1 = 0x0101
+    ROME_VER_1_1 = 0x0101,
+    ROME_VER_2_0 = 0x0200
 };
 #endif /* HW_ROME_H */
