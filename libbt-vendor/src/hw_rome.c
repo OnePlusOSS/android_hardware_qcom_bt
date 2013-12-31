@@ -803,7 +803,7 @@ int rome_tlv_dnld_req(int fd, int tlv_size)
     for(i=0;i<total_segment ;i++){
         /* In case of ROME 1.1, last rampatch segment command will not wait for
             command complete event */
-        wait_cc_evt = ((rome_ver == ROME_VER_1_1 ) && (gTlv_type == TLV_TYPE_PATCH )
+        wait_cc_evt = ((rome_ver == ROME_VER_1_1 || rome_ver == ROME_VER_2_0) && (gTlv_type == TLV_TYPE_PATCH )
              && !remain_size && ((i+1) == total_segment))? FALSE: TRUE;
         if(err = rome_tlv_dnld_segment(fd, i, MAX_SIZE_PER_TLV_SEGMENT, wait_cc_evt ) < 0)
             goto error;
@@ -811,7 +811,7 @@ int rome_tlv_dnld_req(int fd, int tlv_size)
 
     /* In case remain data still remain, last rampatch segment command will not wait
         for command complete event here */
-    wait_cc_evt = ((rome_ver == ROME_VER_1_1 ) && (gTlv_type == TLV_TYPE_PATCH )
+    wait_cc_evt = ((rome_ver == ROME_VER_1_1 || rome_ver == ROME_VER_2_0) && (gTlv_type == TLV_TYPE_PATCH )
          && remain_size )? FALSE:TRUE;
 
     if(remain_size) err =rome_tlv_dnld_segment(fd, i, remain_size, wait_cc_evt);
@@ -820,13 +820,27 @@ error:
     return err;
 }
 
-int rome_download_tlv_file(int fd)
+int rome_download_tlv_file(int fd, unsigned short rome_version)
 {
     int tlv_size, err = -1;
+    char *nvm_file_path = NULL;
+    char *rampatch_file_path = NULL;
 
     /* Rampatch TLV file Downloading */
     pdata_buffer = NULL;
-    if((tlv_size = rome_get_tlv_file(ROME_RAMPATCH_TLV_PATH)) < 0)
+
+    if (rome_version == ROME_VER_1_1) {
+       rampatch_file_path = ROME_RAMPATCH_TLV_PATH;
+       nvm_file_path = ROME_NVM_TLV_PATH;
+    } else if (rome_version == ROME_VER_2_0){
+       rampatch_file_path = ROME_RAMPATCH_TLV_1_0_3_PATH;
+       nvm_file_path = ROME_NVM_TLV_1_0_3_PATH;
+       ALOGE("Rome version ROME_VER_2_0");
+    } else {
+       goto error;
+    }
+
+    if((tlv_size = rome_get_tlv_file(rampatch_file_path)) < 0)
         goto error;
 
     if((err =rome_tlv_dnld_req(fd, tlv_size)) <0 )
@@ -838,7 +852,7 @@ int rome_download_tlv_file(int fd)
     }
 
     /* NVM TLV file Downloading */
-    if((tlv_size = rome_get_tlv_file(ROME_NVM_TLV_PATH)) < 0)
+    if((tlv_size = rome_get_tlv_file(nvm_file_path)) < 0)
         goto error;
 
     if((err =rome_tlv_dnld_req(fd, tlv_size)) <0 )
@@ -1355,6 +1369,7 @@ int rome_soc_init(int fd, char *bdaddr)
                 ALOGI("HCI Reset is done\n");
             }
             break;
+        case ROME_VER_2_0:
         case ROME_VER_1_1:
             {
                 /* Change baud rate 115.2 kbps to 3Mbps*/
@@ -1366,7 +1381,7 @@ int rome_soc_init(int fd, char *bdaddr)
                 ALOGI("%s: Baud rate changed successfully ", __FUNCTION__);
 
                 /* Donwload TLV files (rampatch, NVM) */
-                err = rome_download_tlv_file(fd);
+                err = rome_download_tlv_file(fd, rome_ver);
                 if (err < 0) {
                     ALOGE("%s: Download TLV file failed!", __FUNCTION__);
                     goto error;
