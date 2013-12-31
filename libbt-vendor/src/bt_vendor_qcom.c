@@ -36,6 +36,7 @@
 #include <sys/socket.h>
 #include <cutils/sockets.h>
 #include <linux/un.h>
+#include "bt_vendor_persist.h"
 
 #define WAIT_TIMEOUT 200000
 
