@@ -69,6 +69,7 @@
 #define PATCH_PROD_ID_OFFSET                (5)
 #define PATCH_CURR_FW_VER_OFFSET       (9)
 #define PATCH_CHIPSET_VER_OFFSET        (11)
+#define PATCH_SOC_ID_OFFSET             (13)
 #define MAX_SIZE_PER_TLV_SEGMENT        (243)
 
 /* VS Opcode */
@@ -135,6 +136,8 @@
 #define ROME_NVM_TLV_PATH         "/system/etc/firmware/nvm_tlv.bin"
 #define ROME_RAMPATCH_TLV_1_0_3_PATH    "/system/etc/firmware/rampatch_tlv_1.3.tlv"
 #define ROME_NVM_TLV_1_0_3_PATH         "/system/etc/firmware/nvm_tlv_1.3.bin"
+#define ROME_RAMPATCH_TLV_2_0_1_PATH    "/system/etc/firmware/rampatch_tlv_2.1.tlv"
+#define ROME_NVM_TLV_2_0_1_PATH         "/system/etc/firmware/nvm_tlv_2.1.bin"
 
 /******************************************************************************
 **  Local type definitions
@@ -212,6 +215,7 @@ enum{
     ROME_VER_UNKNOWN = 0,
     ROME_VER_1_0 = 0x0100,
     ROME_VER_1_1 = 0x0101,
-    ROME_VER_2_0 = 0x0200
+    ROME_VER_1_3 = 0x0200,
+    ROME_VER_2_1 = 0X0201
 };
 #endif /* HW_ROME_H */
