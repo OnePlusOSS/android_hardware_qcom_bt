@@ -127,7 +127,6 @@ bool can_perform_action(char action) {
         else if (value > 2) return false;
     } else  {
         ALOGV("%s: off : value is: %d", __func__, value);
-        value--;
         if (value == 0)
            can_perform = true;
         else if (value < 0) return false;
