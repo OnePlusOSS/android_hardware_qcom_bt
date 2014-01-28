@@ -45,6 +45,10 @@ LOCAL_C_FLAGS := \
         -DBT_WAKE_VIA_PROC
 endif #BOARD_HAS_QCA_BT_AR3002
 
+ifeq ($(WIFI_BT_STATUS_SYNC), true)
+LOCAL_CFLAGS += -DWIFI_BT_STATUS_SYNC
+endif #WIFI_BT_STATUS_SYNC
+
 LOCAL_SHARED_LIBRARIES := \
         libcutils \
         liblog \

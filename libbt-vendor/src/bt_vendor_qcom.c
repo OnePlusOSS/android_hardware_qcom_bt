@@ -69,6 +69,20 @@ static const tUSERIAL_CFG userial_init_cfg =
 void hw_epilog_process(void);
 #endif
 
+#ifdef WIFI_BT_STATUS_SYNC
+#include <string.h>
+#include <errno.h>
+#include <dlfcn.h>
+#include "cutils/properties.h"
+
+static const char WIFI_PROP_NAME[]    = "wlan.driver.status";
+static const char SERVICE_PROP_NAME[]    = "bluetooth.hsic_ctrl";
+static const char BT_STATUS_NAME[]    = "bluetooth.enabled";
+static const char WIFI_SERVICE_PROP[] = "wlan.hsic_ctrl";
+
+#define WIFI_BT_STATUS_LOCK    "/data/connectivity/wifi_bt_lock"
+int isInit=0;
+#endif /* WIFI_BT_STATUS_SYNC */
 
 /******************************************************************************
 **  Local type definitions
@@ -78,6 +92,82 @@ void hw_epilog_process(void);
 /******************************************************************************
 **  Functions
 ******************************************************************************/
+#ifdef WIFI_BT_STATUS_SYNC
+int bt_semaphore_create(void)
+{
+    int fd;
+
+    fd = open(WIFI_BT_STATUS_LOCK, O_RDONLY);
+
+    if (fd < 0)
+        ALOGE("can't create file\n");
+
+    return fd;
+}
+
+int bt_semaphore_get(int fd)
+{
+    int ret;
+
+    if (fd < 0)
+        return -1;
+
+    ret = flock(fd, LOCK_EX);
+    if (ret != 0) {
+        ALOGE("can't hold lock: %s\n", strerror(errno));
+        return -1;
+    }
+
+    return ret;
+}
+
+int bt_semaphore_release(int fd)
+{
+    int ret;
+
+    if (fd < 0)
+        return -1;
+
+    ret = flock(fd, LOCK_UN);
+    if (ret != 0) {
+        ALOGE("can't release lock: %s\n", strerror(errno));
+        return -1;
+    }
+
+    return ret;
+}
+
+int bt_semaphore_destroy(int fd)
+{
+    if (fd < 0)
+        return -1;
+
+    return close (fd);
+}
+
+int bt_wait_for_service_done(void)
+{
+    char service_status[PROPERTY_VALUE_MAX];
+    int count = 30;
+
+    ALOGE("%s: check\n", __func__);
+
+    /* wait for service done */
+    while (count-- > 0) {
+        property_get(WIFI_SERVICE_PROP, service_status, NULL);
+
+        if (strcmp(service_status, "") != 0) {
+            usleep(200000);
+        }
+	else {
+            break;
+	}
+    }
+
+    return 0;
+}
+
+#endif /* WIFI_BT_STATUS_SYNC */
 
 /** Get Bluetooth SoC type from system setting */
 static int get_bt_soc_type()
@@ -203,6 +293,11 @@ static int bt_powerup(int en )
     char state;
     char on = (en)?'1':'0';
 
+#ifdef WIFI_BT_STATUS_SYNC
+    char wifi_status[PROPERTY_VALUE_MAX];
+    int lock_fd;
+#endif /*WIFI_BT_STATUS_SYNC*/
+
     ALOGI("bt_powerup: %c", on);
 
     /* Check if rfkill has been disabled */
@@ -217,6 +312,12 @@ static int bt_powerup(int en )
         return -1;
     }
 
+#ifdef WIFI_BT_STATUS_SYNC
+    lock_fd = bt_semaphore_create();
+    bt_semaphore_get(lock_fd);
+    bt_wait_for_service_done();
+#endif
+
     /* Assign rfkill_id and find bluetooth rfkill state path*/
     for(i=0;(rfkill_id == -1) && (rfkill_state == NULL);i++)
     {
@@ -224,6 +325,11 @@ static int bt_powerup(int en )
         if ((fd = open(rfkill_type, O_RDONLY)) < 0)
         {
             ALOGE("open(%s) failed: %s (%d)\n", rfkill_type, strerror(errno), errno);
+
+#ifdef WIFI_BT_STATUS_SYNC
+            bt_semaphore_release(lock_fd);
+            bt_semaphore_destroy(lock_fd);
+#endif
             return -1;
         }
 
@@ -241,11 +347,20 @@ static int bt_powerup(int en )
     if ((fd = open(rfkill_state, O_RDWR)) < 0)
     {
         ALOGE("open(%s) for write failed: %s (%d)",rfkill_state, strerror(errno), errno);
+#ifdef WIFI_BT_STATUS_SYNC
+        bt_semaphore_release(lock_fd);
+        bt_semaphore_destroy(lock_fd);
+#endif
+
         return -1;
     }
 
     if(can_perform_action(on) == false) {
         ALOGE("%s:can't perform action as it is being used by other clients", __func__);
+#ifdef WIFI_BT_STATUS_SYNC
+        bt_semaphore_release(lock_fd);
+        bt_semaphore_destroy(lock_fd);
+#endif
         goto done;
     }
 
@@ -254,7 +369,11 @@ static int bt_powerup(int en )
     /* Write value to control rfkill */
     if ((size = write(fd, &on, 1)) < 0) {
         ALOGE("write(%s) failed: %s (%d)",rfkill_state, strerror(errno),errno);
-        return -1;
+#ifdef WIFI_BT_STATUS_SYNC
+        bt_semaphore_release(lock_fd);
+        bt_semaphore_destroy(lock_fd);
+#endif
+	return -1;
     }
 
     if(on == '0'){
@@ -262,6 +381,45 @@ static int bt_powerup(int en )
         stop_hci_filter();
         property_set("wc_transport.soc_initialized", "0");
     }
+
+#ifdef WIFI_BT_STATUS_SYNC
+    /* query wifi status */
+    property_get(WIFI_PROP_NAME, wifi_status, "");
+
+    ALOGE("bt get wifi status: %s, isInit: %d\n",  wifi_status, isInit);
+
+    /* If wlan driver is not loaded, and bt is changed from off => on */
+    if (strncmp(wifi_status, "unloaded", strlen("unloaded")) == 0 || strlen(wifi_status) == 0) {
+        if (on == '1') {
+            ALOGI("%s: BT_VND_PWR_ON\n", __func__);
+            if(property_set(SERVICE_PROP_NAME, "load_wlan") < 0) {
+                ALOGE("%s Property setting failed", SERVICE_PROP_NAME);
+                close(fd);
+                bt_semaphore_release(lock_fd);
+                bt_semaphore_destroy(lock_fd);
+                return -1;
+            }
+        }
+        else if (isInit == 0 && on == '0') {
+            ALOGI("%s: BT_VND_PWR_OFF\n", __func__);
+            if(property_set(SERVICE_PROP_NAME, "unbind_hsic") < 0) {
+                ALOGE("%s Property setting failed", SERVICE_PROP_NAME);
+                close(fd);
+                bt_semaphore_release(lock_fd);
+                bt_semaphore_destroy(lock_fd);
+                return -1;
+            }
+       }
+    }
+
+    if (isInit == 0 && on == '0')
+        property_set(BT_STATUS_NAME, "false");
+    else if (on == '1')
+        property_set(BT_STATUS_NAME, "true");
+
+    bt_semaphore_release(lock_fd);
+    bt_semaphore_destroy(lock_fd);
+#endif /* WIFI_BT_STATUS_SYNC */
 
 done:
     if (fd >= 0)
@@ -322,6 +480,11 @@ static int init(const bt_vendor_callbacks_t* p_cb, unsigned char *local_bdaddr)
                                                 vnd_local_bd_addr[3],
                                                 vnd_local_bd_addr[4],
                                                 vnd_local_bd_addr[5]);
+
+#ifdef WIFI_BT_STATUS_SYNC
+    isInit = 1;
+#endif /* WIFI_BT_STATUS_SYNC */
+
     return 0;
 }
 
@@ -681,6 +844,10 @@ static void cleanup( void )
 {
     ALOGI("cleanup");
     bt_vendor_cbacks = NULL;
+
+#ifdef WIFI_BT_STATUS_SYNC
+    isInit = 0;
+#endif /* WIFI_BT_STATUS_SYNC */
 }
 
 // Entry point of DLib
