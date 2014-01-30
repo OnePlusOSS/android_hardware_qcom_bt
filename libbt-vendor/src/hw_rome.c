@@ -1413,6 +1413,15 @@ download:
             }
             ALOGI("%s: Download TLV file successfully ", __FUNCTION__);
 
+            /* This function sends a vendor specific command to enable/disable
+             * controller logs on need. Once the command is received to the SOC,
+             * It would start sending cotroller's print strings and LMP RX/TX
+             * packets to the HOST (over the UART) which will be logged in QXDM.
+             * The property 'enablebtsoclog' used to send this command on BT init
+             * sequence.
+             */
+            enable_controller_log(fd);
+
             /* Perform HCI reset here*/
             err = rome_hci_reset_req(fd);
             if ( err <0 ) {
@@ -1422,14 +1431,6 @@ download:
 
             ALOGI("HCI Reset is done\n");
 
-            /* This function sends a vendor specific command to enable/disable
-             * controller logs on need. Once the command is received to the SOC,
-             * It would start sending cotroller's print strings and LMP RX/TX
-             * packets to the HOST (over the UART) which will be logged in QXDM.
-             * The property 'enablebtsoclog' used to send this command on BT init
-             * sequence.
-             */
-            enable_controller_log(fd);
             break;
         case ROME_VER_UNKNOWN:
         default:
