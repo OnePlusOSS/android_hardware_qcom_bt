@@ -1302,17 +1302,18 @@ error:
 static void enable_controller_log (int fd)
 {
    int ret = 0;
-   /* VS command to enable controller logging to the HOST. By default it is disabled */
-   unsigned char cmd[6] = {0x01, 0x17, 0xFC, 0x02, 0x00, 0x00};
+   /* VS command to enable controller logging to the HOST. By default it is enabled */
+   unsigned char cmd[6] = {0x01, 0x17, 0xFC, 0x02, 0x00, 0x01};
    unsigned char rsp[HCI_MAX_EVENT_SIZE];
    char value[PROPERTY_VALUE_MAX] = {'\0'};
 
-   property_get("enablebtsoclog", value, "false");
-
-   // value at cmd[5]: 1 - to enable, 0 - to disable
-   ret = (strcmp(value, "true") == 0) ? cmd[5] = 0x01: 0;
+   property_get("enablebtsoclog", value, "0");
+   //value at cmd[5]: 1 - to enable, 0 - to disable
+   ret = (strcmp(value, "false") == 0) ? (cmd[5] = 0): (cmd[5] = 1);
    ALOGI("%s: %d", __func__, ret);
-
+   if (ret) {
+     property_set("enablebtsoclog", "true");
+   }
    ret = hci_send_vs_cmd(fd, (unsigned char *)cmd, rsp, 6);
    if (ret != 6) {
      ALOGE("%s: command failed", __func__);
