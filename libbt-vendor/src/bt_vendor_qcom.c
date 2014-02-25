@@ -671,6 +671,7 @@ static int op(bt_vendor_opcode_t opcode, void *param)
                                 }
                             }
 
+                            property_set("wc_transport.clean_up","0");
                             if (retval != -1) {
                                  start_hci_filter();
                                  if (is_ant_req) {
@@ -704,6 +705,7 @@ static int op(bt_vendor_opcode_t opcode, void *param)
         case BT_VND_OP_ANT_USERIAL_CLOSE:
             {
                 ALOGI("bt-vendor : BT_VND_OP_ANT_USERIAL_CLOSE");
+                property_set("wc_transport.clean_up","1");
                 if (ant_fd != -1) {
                     ALOGE("closing ant_fd");
                     close(ant_fd);
@@ -722,6 +724,7 @@ static int op(bt_vendor_opcode_t opcode, void *param)
 
                      case BT_SOC_ROME:
                      case BT_SOC_AR3K:
+                        property_set("wc_transport.clean_up","1");
                         userial_vendor_close();
                         break;
                     default:
@@ -767,9 +770,9 @@ static int op(bt_vendor_opcode_t opcode, void *param)
                                 BT_VND_LPM_WAKE_ASSERT : BT_VND_LPM_WAKE_DEASSERT;
 
                             if (wake_assert == 0)
-                                ALOGI("ASSERT: Waking up BT-Device");
+                                ALOGV("ASSERT: Waking up BT-Device");
                             else if (wake_assert == 1)
-                                ALOGI("DEASSERT: Allowing BT-Device to Sleep");
+                                ALOGV("DEASSERT: Allowing BT-Device to Sleep");
 
 #ifdef QCOM_BT_SIBS_ENABLE
                             if(bt_vendor_cbacks){
