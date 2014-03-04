@@ -41,6 +41,12 @@ static char *s_pszDevSmd[] = {
     "/dev/smd2"
 };
 
+/******************************************************************************
+**  Externs
+******************************************************************************/
+extern int is_bt_ssr_hci;
+
+
 /*****************************************************************************
 **   Functions
 *****************************************************************************/
@@ -63,7 +69,9 @@ int bt_hci_init_transport_id (int chId )
   struct termios   term;
   int fd = -1;
   int retry = 0;
+  char ssrvalue[92]= {'\0'};
 
+  ssrvalue[0] = '0';
   if(chId > 2 || chId <0)
      return -1;
 
@@ -89,7 +97,26 @@ int bt_hci_init_transport_id (int chId )
      ensure the smd port is successfully opened.
      TODO: Following sleep to be removed once SMD port is successfully
      opened immediately on return from the aforementioned open call */
-  usleep(500000);
+
+  property_get("bluetooth.isSSR", ssrvalue, "");
+
+  if(ssrvalue[0] == '1')
+  {
+      /*reset the SSR flag */
+      if(chId == 1)
+      {
+          if(property_set("bluetooth.isSSR", "0") < 0)
+          {
+              ALOGE("SSR: hci_smd.c:SSR case : error in setting up property new\n ");
+          }
+          else
+          {
+              ALOGE("SSR: hci_smd.c:SSR case : Reset the SSr Flag new\n ");
+          }
+      }
+      ALOGE("hci_smd.c:IN SSR sleep for 500 msec New \n");
+      usleep(500000);
+  }
 
   if (tcflush(fd, TCIOFLUSH) < 0)
   {
