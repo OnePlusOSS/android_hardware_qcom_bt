@@ -91,7 +91,7 @@ int get_vs_hci_event(unsigned char *rsp)
         goto failed;
     }
 
-    ALOGI("%s: Parameter Length: 0x%x", __FUNCTION__, paramlen = rsp[PLEN]);
+    ALOGI("%s: Parameter Length: 0x%x", __FUNCTION__, paramlen = rsp[EVT_PLEN]);
     ALOGI("%s: Command response: 0x%x", __FUNCTION__, rsp[CMD_RSP_OFFSET]);
     ALOGI("%s: Response type   : 0x%x", __FUNCTION__, rsp[RSP_TYPE_OFFSET]);
 
