@@ -585,7 +585,6 @@ static int rome_download_rampatch(int fd)
         c = fgetc (file);
         pdata_buffer[index++] = (unsigned char)c;
     } while (c != EOF);
-    fclose(file);
 
     /* Downloading patches in segments to controller */
     ret = rome_edl_patch_download_request(fd);
@@ -689,6 +688,7 @@ int rome_get_tlv_file(char *file_path)
     pdata_buffer = (unsigned char*) malloc (sizeof(char)*fileSize);
     if (pdata_buffer == NULL) {
         ALOGE("Allocated Memory failed");
+        fclose (pFile);
         return -1;
     }
 
