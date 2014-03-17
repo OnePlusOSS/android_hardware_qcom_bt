@@ -49,8 +49,9 @@
 
 #define P_ID_OFFSET                                     (0)
 #define HCI_CMD_IND                                   (1)
-#define EVENTCODE_OFFSET                         (1)
-#define PLEN                                                   (2)
+#define EVENTCODE_OFFSET                      (1)
+#define EVT_PLEN                                             (2)
+#define PLEN                                                       (3)
 #define CMD_RSP_OFFSET                             (3)
 #define RSP_TYPE_OFFSET                            (4)
 #define BAUDRATE_RSP_STATUS_OFFSET    (4)
