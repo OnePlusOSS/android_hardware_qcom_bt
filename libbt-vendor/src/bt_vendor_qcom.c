@@ -583,8 +583,7 @@ static int op(bt_vendor_opcode_t opcode, void *param)
                    bt_vendor_cbacks->fwcfg_cb(BT_VND_OP_RESULT_SUCCESS);
                 }
                 else{
-                   ALOGE("Error : hci, smd initialization Error");
-                   bt_vendor_cbacks->fwcfg_cb(BT_VND_OP_RESULT_FAIL);
+                   ALOGE("bt_vendor_cbacks is null");
                 }
             }
             break;
