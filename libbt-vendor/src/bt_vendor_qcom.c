@@ -83,6 +83,7 @@ static const char WIFI_SERVICE_PROP[] = "wlan.hsic_ctrl";
 #define WIFI_BT_STATUS_LOCK    "/data/connectivity/wifi_bt_lock"
 int isInit=0;
 #endif /* WIFI_BT_STATUS_SYNC */
+bool is_soc_initialized(void);
 
 /******************************************************************************
 **  Local type definitions
@@ -211,7 +212,18 @@ bool can_perform_action(char action) {
 
     if(action == '1') {
         ALOGV("%s: on : value is: %d", __func__, value);
-        value++;
+        if(value == 1)
+        {
+          if(is_soc_initialized() == true)
+          {
+            value++;
+            ALOGV("%s: on : value is incremented to : %d", __func__, value);
+          }
+        }
+        else
+        {
+             value++;
+        }
         if (value == 1)
            can_perform = true;
         else if (value > 2) return false;
