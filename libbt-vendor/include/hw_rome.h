@@ -166,8 +166,8 @@ typedef struct {
     unsigned char sign_algorithm;
     unsigned short reserved1;
     unsigned short prod_id;
-    unsigned short patch_ver;
     unsigned short build_ver;
+    unsigned short patch_ver;
     unsigned short reserved2;
     unsigned int patch_entry_addr;
 } __attribute__ ((packed)) tlv_patch_hdr;
@@ -184,6 +184,8 @@ typedef struct {
     unsigned char tlv_length1;
     unsigned char tlv_length2;
     unsigned char tlv_length3;
+    unsigned int  tlv_data_len;
+    unsigned int  tlv_patch_data_len;
 
     union{
         tlv_patch_hdr patch;
