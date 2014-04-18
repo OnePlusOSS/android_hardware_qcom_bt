@@ -596,6 +596,8 @@ static int op(bt_vendor_opcode_t opcode, void *param)
                 }
                 else{
                    ALOGE("bt_vendor_cbacks is null");
+                   ALOGE("Error : hci, smd initialization Error");
+                   retval = -1;
                 }
             }
             break;
