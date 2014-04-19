@@ -714,8 +714,8 @@ int rome_get_tlv_file(char *file_path)
         ALOGI("Length\t\t\t : %d bytes", (ptlv_header->tlv_length1) |
                                                     (ptlv_header->tlv_length2 << 8) |
                                                     (ptlv_header->tlv_length3 << 16));
-        ALOGI("Total Length\t\t\t : %d bytes", ptlv_header->tlv_data_len);
-        ALOGI("Patch Data Length\t\t\t : %d bytes",ptlv_header->tlv_patch_data_len);
+        ALOGI("Total Length\t\t\t : %d bytes", ptlv_header->tlv.patch.tlv_data_len);
+        ALOGI("Patch Data Length\t\t\t : %d bytes",ptlv_header->tlv.patch.tlv_patch_data_len);
         ALOGI("Signing Format Version\t : 0x%x", ptlv_header->tlv.patch.sign_ver);
         ALOGI("Signature Algorithm\t\t : 0x%x", ptlv_header->tlv.patch.sign_algorithm);
         ALOGI("Reserved\t\t\t : 0x%x", ptlv_header->tlv.patch.reserved1);
