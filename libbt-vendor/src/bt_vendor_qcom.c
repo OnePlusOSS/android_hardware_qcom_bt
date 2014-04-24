@@ -356,15 +356,18 @@ static int bt_powerup(int en )
     }
 
     /* Get rfkill State to control */
-    if ((fd = open(rfkill_state, O_RDWR)) < 0)
+    if (rfkill_state != NULL)
     {
-        ALOGE("open(%s) for write failed: %s (%d)",rfkill_state, strerror(errno), errno);
+        if ((fd = open(rfkill_state, O_RDWR)) < 0)
+        {
+            ALOGE("open(%s) for write failed: %s (%d)",rfkill_state, strerror(errno), errno);
 #ifdef WIFI_BT_STATUS_SYNC
-        bt_semaphore_release(lock_fd);
-        bt_semaphore_destroy(lock_fd);
+            bt_semaphore_release(lock_fd);
+            bt_semaphore_destroy(lock_fd);
 #endif
 
-        return -1;
+            return -1;
+        }
     }
 
     if(can_perform_action(on) == false) {
