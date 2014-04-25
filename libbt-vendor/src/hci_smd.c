@@ -72,7 +72,7 @@ int bt_hci_init_transport_id (int chId )
   char ssrvalue[92]= {'\0'};
 
   ssrvalue[0] = '0';
-  if(chId > 2 || chId <0)
+  if(chId >= 2 || chId <0)
      return -1;
 
   fd = open(s_pszDevSmd[chId], (O_RDWR | O_NOCTTY));
