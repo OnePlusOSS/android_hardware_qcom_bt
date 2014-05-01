@@ -57,7 +57,7 @@ uint8_t vnd_local_bd_addr[6]={0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 static int btSocType = BT_SOC_DEFAULT;
 static int rfkill_id = -1;
 static char *rfkill_state = NULL;
-
+bool enable_extldo = FALSE;
 
 static const tUSERIAL_CFG userial_init_cfg =
 {
@@ -297,9 +297,9 @@ void start_hci_filter() {
 /** Bluetooth Controller power up or shutdown */
 static int bt_powerup(int en )
 {
-    char rfkill_type[64];
-    char type[16];
-    int fd, size, i, ret;
+    char rfkill_type[64], *enable_ldo_path = NULL;
+    char type[16], enable_ldo[6];
+    int fd, size, i, ret, fd_ldo;
 
     char disable[PROPERTY_VALUE_MAX];
     char state;
@@ -377,6 +377,22 @@ static int bt_powerup(int en )
         bt_semaphore_destroy(lock_fd);
 #endif
         goto done;
+    }
+
+    asprintf(&enable_ldo_path, "/sys/devices/bt_qca6174.0/extldo");
+    if ((fd_ldo = open(enable_ldo_path, O_RDWR)) < 0) {
+        ALOGE("open(%s) failed: %s (%d)", enable_ldo_path, strerror(errno), errno);
+        return -1;
+    }
+    size = read(fd_ldo, &enable_ldo, sizeof(enable_ldo));
+    close(fd_ldo);
+    if (size <= 0) {
+        ALOGE("read(%s) failed: %s (%d)", enable_ldo_path, strerror(errno), errno);
+        return -1;
+    }
+    if (!memcmp(enable_ldo, "true", 4)) {
+        ALOGI("External LDO has been configured");
+	enable_extldo = TRUE;
     }
 
     ALOGE("Write %c to rfkill\n", on);

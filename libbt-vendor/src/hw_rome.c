@@ -68,6 +68,7 @@ int rome_ver = ROME_VER_UNKNOWN;
 unsigned char gTlv_type;
 char *rampatch_file_path;
 char *nvm_file_path;
+extern char enable_extldo;
 
 /******************************************************************************
 **  Extern variables
@@ -1301,6 +1302,46 @@ error:
 
 }
 
+
+int rome_hci_reset(int fd)
+{
+    int size, err = 0;
+    unsigned char cmd[HCI_MAX_CMD_SIZE];
+    unsigned char rsp[HCI_MAX_EVENT_SIZE];
+    hci_command_hdr *cmd_hdr;
+    int flags;
+
+    ALOGI("%s: HCI RESET ", __FUNCTION__);
+
+    memset(cmd, 0x0, HCI_MAX_CMD_SIZE);
+
+    cmd_hdr = (void *) (cmd + 1);
+    cmd[0]  = HCI_COMMAND_PKT;
+    cmd_hdr->opcode = HCI_RESET;
+    cmd_hdr->plen   = 0;
+
+    /* Total length of the packet to be sent to the Controller */
+    size = (HCI_CMD_IND + HCI_COMMAND_HDR_SIZE);
+    err = write(fd, cmd, size);
+    if (err != size) {
+        ALOGE("%s: Send failed with ret value: %d", __FUNCTION__, err);
+        err = -1;
+        goto error;
+    }
+
+    /* Wait for command complete event */
+    err = read_hci_event(fd, rsp, HCI_MAX_EVENT_SIZE);
+    if ( err < 0) {
+        ALOGE("%s: Failed to set patch info on Controller", __FUNCTION__);
+        goto error;
+    }
+
+error:
+    return err;
+
+}
+
+
 static void enable_controller_log (int fd)
 {
    int ret = 0;
@@ -1320,6 +1361,30 @@ static void enable_controller_log (int fd)
    if (ret != 6) {
      ALOGE("%s: command failed", __func__);
    }
+}
+
+
+static int disable_internal_ldo(int fd)
+{
+    int ret = 0;
+    if (enable_extldo) {
+        unsigned char cmd[5] = {0x01, 0x0C, 0xFC, 0x01, 0x32};
+        unsigned char rsp[HCI_MAX_EVENT_SIZE];
+
+        ALOGI(" %s ", __FUNCTION__);
+        ret = write(fd, cmd, 5);
+        if (ret != 5) {
+            ALOGE("%s: Send failed with ret value: %d", __FUNCTION__, ret);
+            ret = -1;
+        } else {
+            /* Wait for command complete event */
+            ret = read_hci_event(fd, rsp, HCI_MAX_EVENT_SIZE);
+            if ( ret < 0) {
+                ALOGE("%s: Failed to get response from controller", __FUNCTION__);
+            }
+        }
+    }
+    return ret;
 }
 
 int rome_soc_init(int fd, char *bdaddr)
@@ -1425,15 +1490,11 @@ download:
              */
             enable_controller_log(fd);
 
-            /* Perform HCI reset here*/
-            err = rome_hci_reset_req(fd);
-            if ( err <0 ) {
-                ALOGE("HCI Reset Failed !!");
-                goto error;
-            }
+            /* Disable internal LDO to use external LDO instead*/
+            err = disable_internal_ldo(fd);
 
-            ALOGI("HCI Reset is done\n");
-
+            /* Send HCI Reset */
+            err = rome_hci_reset(fd);
             break;
         case ROME_VER_UNKNOWN:
         default:
