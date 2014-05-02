@@ -379,7 +379,7 @@ static int bt_powerup(int en )
         goto done;
     }
 
-    asprintf(&enable_ldo_path, "/sys/devices/bt_qca6174.0/extldo");
+    asprintf(&enable_ldo_path, "/sys/class/rfkill/rfkill%d/device/extldo", rfkill_id);
     if ((fd_ldo = open(enable_ldo_path, O_RDWR)) < 0) {
         ALOGE("open(%s) failed: %s (%d)", enable_ldo_path, strerror(errno), errno);
         return -1;
