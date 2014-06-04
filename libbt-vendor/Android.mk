@@ -35,6 +35,10 @@ ifeq ($(QCOM_BT_USE_SIBS),true)
 LOCAL_CFLAGS += -DQCOM_BT_SIBS_ENABLE
 endif
 
+ifeq ($(BOARD_HAS_QCA_BT_ROME),true)
+LOCAL_CFLAGS += -DBT_SOC_TYPE_ROME
+endif
+
 LOCAL_C_INCLUDES += \
         $(LOCAL_PATH)/include \
         $(BDROID_DIR)/hci/include \

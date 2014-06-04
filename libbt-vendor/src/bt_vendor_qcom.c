@@ -51,7 +51,9 @@ extern int rome_soc_init(int fd, char *bdaddr);
 **  Variables
 ******************************************************************************/
 int pFd[2] = {0,};
+#ifdef BT_SOC_TYPE_ROME
 int ant_fd;
+#endif
 bt_vendor_callbacks_t *bt_vendor_cbacks = NULL;
 uint8_t vnd_local_bd_addr[6]={0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 static int btSocType = BT_SOC_DEFAULT;
@@ -369,7 +371,7 @@ static int bt_powerup(int en )
             return -1;
         }
     }
-
+#ifdef BT_SOC_TYPE_ROME
     if(can_perform_action(on) == false) {
         ALOGE("%s:can't perform action as it is being used by other clients", __func__);
 #ifdef WIFI_BT_STATUS_SYNC
@@ -378,7 +380,7 @@ static int bt_powerup(int en )
 #endif
         goto done;
     }
-
+#endif
     asprintf(&enable_ldo_path, "/sys/class/rfkill/rfkill%d/device/extldo", rfkill_id);
     if ((fd_ldo = open(enable_ldo_path, O_RDWR)) < 0) {
         ALOGE("open(%s) failed: %s (%d)", enable_ldo_path, strerror(errno), errno);
@@ -406,13 +408,13 @@ static int bt_powerup(int en )
 #endif
 	return -1;
     }
-
+#ifdef BT_SOC_TYPE_ROME
     if(on == '0'){
         ALOGE("Stopping HCI filter as part of CTRL:OFF");
         stop_hci_filter();
         property_set("wc_transport.soc_initialized", "0");
     }
-
+#endif
 #ifdef WIFI_BT_STATUS_SYNC
     /* query wifi status */
     property_get(WIFI_PROP_NAME, wifi_status, "");
@@ -626,11 +628,12 @@ static int op(bt_vendor_opcode_t opcode, void *param)
                 bt_vendor_cbacks->scocfg_cb(BT_VND_OP_RESULT_SUCCESS); //dummy
             }
             break;
-
+#ifdef BT_SOC_TYPE_ROME
         case BT_VND_OP_ANT_USERIAL_OPEN:
                 ALOGI("bt-vendor : BT_VND_OP_ANT_USERIAL_OPEN");
                 is_ant_req = true;
                 //fall through
+#endif
         case BT_VND_OP_USERIAL_OPEN:
             {
                 int (*fd_array)[] = (int (*)[]) param;
@@ -705,11 +708,15 @@ static int op(bt_vendor_opcode_t opcode, void *param)
 
                             property_set("wc_transport.clean_up","0");
                             if (retval != -1) {
+#ifdef BT_SOC_TYPE_ROME
                                  start_hci_filter();
                                  if (is_ant_req) {
                                      ALOGV("connect to ant channel");
                                      ant_fd = fd = connect_to_local_socket("ant_sock");
-                                 } else {
+                                 }
+                                 else
+#endif
+                                 {
                                      ALOGV("connect to bt channel");
                                      vnd_userial.fd = fd = connect_to_local_socket("bt_sock");
                                  }
@@ -733,7 +740,7 @@ static int op(bt_vendor_opcode_t opcode, void *param)
                 }
             }
             break;
-
+#ifdef BT_SOC_TYPE_ROME
         case BT_VND_OP_ANT_USERIAL_CLOSE:
             {
                 ALOGI("bt-vendor : BT_VND_OP_ANT_USERIAL_CLOSE");
@@ -745,6 +752,7 @@ static int op(bt_vendor_opcode_t opcode, void *param)
                 }
             }
             break;
+#endif
         case BT_VND_OP_USERIAL_CLOSE:
             {
                 ALOGI("bt-vendor : BT_VND_OP_USERIAL_CLOSE btSocType: %d", btSocType);
@@ -857,9 +865,11 @@ static void ssr_cleanup(void) {
     }
 
     if (btSocType == BT_SOC_ROME) {
-
-        /*Close both ANT and BT channels*/
+#ifdef BT_SOC_TYPE_ROME
+        /*Close both ANT channel*/
         op(BT_VND_OP_ANT_USERIAL_CLOSE, NULL);
+#endif
+        /*Close both ANT channel*/
         op(BT_VND_OP_USERIAL_CLOSE, NULL);
         /*CTRL OFF twice to make sure hw
          * turns off*/
@@ -867,9 +877,10 @@ static void ssr_cleanup(void) {
 
     }
 
+#ifdef BT_SOC_TYPE_ROME
     /*Generally switching of chip should be enough*/
     op(BT_VND_OP_POWER_CTRL, &pwr_state);
-
+#endif
     bt_vendor_cbacks = NULL;
 }
 
