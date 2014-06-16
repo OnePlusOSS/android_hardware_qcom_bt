@@ -845,7 +845,30 @@ static int op(bt_vendor_opcode_t opcode, void *param)
                     bt_vendor_cbacks->epilog_cb(BT_VND_OP_RESULT_SUCCESS);
                 }
 #else
-                hw_epilog_process();
+                switch(btSocType)
+                {
+                  case BT_SOC_ROME:
+                       {
+                           char value[PROPERTY_VALUE_MAX] = {'\0'};
+                           property_get("wc_transport.hci_filter_status", value, "0");
+                           if(is_soc_initialized()&& (strcmp(value,"1") == 0))
+                           {
+                              hw_epilog_process();
+                           }
+                           else
+                           {
+                             if (bt_vendor_cbacks)
+                               {
+                                 ALOGE("vendor lib epilog process aborted");
+                                 bt_vendor_cbacks->epilog_cb(BT_VND_OP_RESULT_SUCCESS);
+                               }
+                           }
+                       }
+                       break;
+                  default:
+                       hw_epilog_process();
+                       break;
+                }
 #endif
             }
             break;
