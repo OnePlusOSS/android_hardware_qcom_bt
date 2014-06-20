@@ -586,6 +586,11 @@ static int op(bt_vendor_opcode_t opcode, void *param)
                 switch(btSocType)
                 {
                     case BT_SOC_DEFAULT:
+                        if (readTrpState())
+                        {
+                           ALOGI("bt-vendor : resetting BT status");
+                           hw_config(BT_VND_PWR_OFF);
+                        }
                         retval = hw_config(nState);
                         if(nState == BT_VND_PWR_ON
                            && retval == 0
