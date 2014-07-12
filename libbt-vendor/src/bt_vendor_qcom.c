@@ -877,6 +877,25 @@ static int op(bt_vendor_opcode_t opcode, void *param)
 #endif
             }
             break;
+        case BT_VND_OP_GET_LINESPEED:
+            {
+                retval = -1;
+                switch(btSocType)
+                {
+                    case BT_SOC_ROME:
+                        if(!is_soc_initialized()) {
+                            ALOGE("BT_VND_OP_GET_LINESPEED: error"
+                            " - transport driver not initialized!");
+                        }else {
+                            retval = 3000000;
+                        }
+                        break;
+                    default:
+                        retval = userial_vendor_get_baud();
+                        break;
+                 }
+                break;
+            }
     }
 
     return retval;
