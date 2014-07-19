@@ -76,17 +76,22 @@
 /* VS Opcode */
 #define HCI_PATCH_CMD_OCF                       (0)
 #define EDL_SET_BAUDRATE_CMD_OCF        (0x48)
+#define EDL_WIPOWER_VS_CMD_OCF          (0x0c)
 
 /* VS Commands */
 #define VSC_SET_BAUDRATE_REQ_LEN        (1)
 #define EDL_PATCH_CMD_LEN	                       (1)
 #define EDL_PATCH_CMD_REQ_LEN               (1)
+#define EDL_WIP_QUERY_CHARGING_STATUS_LEN   (0x01)
+#define EDL_WIP_START_HANDOFF_TO_HOST_LEN   (0x01)
 #define EDL_PATCH_DLD_REQ_CMD               (0x01)
 #define EDL_PATCH_RST_REQ_CMD               (0x05)
 #define EDL_PATCH_SET_REQ_CMD               (0x16)
 #define EDL_PATCH_ATCH_REQ_CMD            (0x17)
 #define EDL_PATCH_VER_REQ_CMD               (0x19)
 #define EDL_PATCH_TLV_REQ_CMD               (0x1E)
+#define EDL_WIP_QUERY_CHARGING_STATUS_CMD   (0x1D)
+#define EDL_WIP_START_HANDOFF_TO_HOST_CMD   (0x1E)
 
 /* VS Event */
 #define EDL_CMD_REQ_RES_EVT                 (0x00)
@@ -95,6 +100,8 @@
 #define EDL_PATCH_VER_RES_EVT             (0x19)
 #define EDL_TVL_DNLD_RES_EVT                (0x04)
 #define EDL_APP_VER_RES_EVT                  (0x02)
+#define EDL_WIP_QUERY_CHARGING_STATUS_EVT    (0x18)
+#define EDL_WIP_START_HANDOFF_TO_HOST_EVENT  (0x19)
 
 
 /* Status Codes of HCI CMD execution*/
@@ -106,6 +113,10 @@
 #define TLV_TYPE_ERROR                         (0x10)
 #define NVM_ACCESS_CODE                     (0x0B)
 #define BAUDRATE_CHANGE_SUCCESS   (1)
+
+/* Wipower status codes */
+#define WIPOWER_IN_EMBEDDED_MODE 0x01
+#define NON_WIPOWER_MODE 0x02
 
 /* TLV_TYPE */
 #define TLV_TYPE_PATCH                  (1)
