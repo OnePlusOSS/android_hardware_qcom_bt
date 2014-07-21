@@ -106,6 +106,70 @@ uint8_t userial_to_tcio_baud(uint8_t cfg_baud, uint32_t *baud)
     return TRUE;
 }
 
+/*******************************************************************************
+**
+** Function        userial_to_baud_tcio
+**
+** Description     helper function converts TCIO baud rate into integer
+**
+** Returns         uint32_t
+**
+*******************************************************************************/
+int userial_tcio_baud_to_int(uint32_t baud)
+{
+    int baud_rate =0;
+
+    switch (baud)
+    {
+        case B600:
+            baud_rate = 600;
+            break;
+        case B1200:
+            baud_rate = 1200;
+            break;
+        case B9600:
+            baud_rate = 9600;
+            break;
+        case B19200:
+            baud_rate = 19200;
+            break;
+        case B57600:
+            baud_rate = 57600;
+            break;
+        case B115200:
+            baud_rate = 115200;
+            break;
+        case B230400:
+            baud_rate = 230400;
+            break;
+        case B460800:
+            baud_rate = 460800;
+            break;
+        case B921600:
+            baud_rate = 921600;
+            break;
+        case B1000000:
+            baud_rate = 1000000;
+            break;
+        case B2000000:
+            baud_rate = 2000000;
+            break;
+        case B3000000:
+            baud_rate = 3000000;
+            break;
+        case B4000000:
+            baud_rate = 4000000;
+            break;
+        default:
+            ALOGE( "%s: unsupported baud %d", __FUNCTION__, baud);
+            break;
+    }
+
+    ALOGI( "%s: Current Baudrate = %d bps", __FUNCTION__, baud_rate);
+    return baud_rate;
+}
+
+
 #if (BT_WAKE_VIA_USERIAL_IOCTL==TRUE)
 /*******************************************************************************
 **
@@ -293,7 +357,26 @@ void userial_vendor_set_baud(uint8_t userial_baud)
     cfsetospeed(&vnd_userial.termios, tcio_baud);
     cfsetispeed(&vnd_userial.termios, tcio_baud);
     tcsetattr(vnd_userial.fd, TCSADRAIN, &vnd_userial.termios); /* don't change speed until last write done */
+}
 
+/*******************************************************************************
+**
+** Function        userial_vendor_get_baud
+**
+** Description     Get current baud rate
+**
+** Returns         int
+**
+*******************************************************************************/
+int userial_vendor_get_baud(void)
+{
+    if (vnd_userial.fd == -1)
+    {
+        ALOGE( "%s: uart port(%s) has not been opened", __FUNCTION__, BT_HS_UART_DEVICE );
+        return -1;
+    }
+
+    return userial_tcio_baud_to_int(cfgetispeed(&vnd_userial.termios));
 }
 
 /*******************************************************************************
