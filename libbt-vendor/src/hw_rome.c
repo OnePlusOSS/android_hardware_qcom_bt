@@ -66,6 +66,8 @@ unsigned char *pdata_buffer = NULL;
 patch_info rampatch_patch_info;
 int rome_ver = ROME_VER_UNKNOWN;
 unsigned char gTlv_type;
+static unsigned int wipower_flag = 0;
+static unsigned int wipower_handoff_ready = 0;
 char *rampatch_file_path;
 char *nvm_file_path;
 extern char enable_extldo;
@@ -83,6 +85,7 @@ int get_vs_hci_event(unsigned char *rsp)
 {
     int err = 0, i, soc_id =0;
     unsigned char paramlen = 0;
+    unsigned char EMBEDDED_MODE_CHECK = 0x02;
 
     if( (rsp[EVENTCODE_OFFSET] == VSEVENT_CODE) || (rsp[EVENTCODE_OFFSET] == EVT_CMD_COMPLETE))
         ALOGI("%s: Received HCI-Vendor Specific event", __FUNCTION__);
@@ -181,6 +184,25 @@ int get_vs_hci_event(unsigned char *rsp)
                 err = -1;
             }
             break;
+       case EDL_WIP_QUERY_CHARGING_STATUS_EVT:
+            /*TODO: rsp code 00 mean no charging
+            this is going to change in FW soon*/
+            if (rsp[4] != EMBEDDED_MODE_CHECK)
+            {
+               ALOGI("%s: WiPower Charging in Embedded Mode!!!", __FUNCTION__);
+               wipower_handoff_ready = rsp[4];
+               wipower_flag = 1;
+            }
+            break;
+        case EDL_WIP_START_HANDOFF_TO_HOST_EVENT:
+            /*TODO: rsp code 00 mean no charging
+            this is going to change in FW soon*/
+            if (rsp[4] == NON_WIPOWER_MODE)
+            {
+               ALOGE("%s: WiPower Charging hand off not ready!!!", __FUNCTION__);
+            }
+            break;
+
         default:
             ALOGE("%s: Not a valid status!!!", __FUNCTION__);
             err = -1;
@@ -247,6 +269,35 @@ int read_vs_hci_event(int fd, unsigned char* buf, int size)
         return -1;
 
     return count;
+}
+
+/*
+ * For Hand-Off related Wipower commands, Command complete arrives first and
+ * the followd with VS event
+ *
+ */
+int hci_send_wipower_vs_cmd(int fd, unsigned char *cmd, unsigned char *rsp, int size)
+{
+    int ret = 0;
+    int err = 0;
+
+    /* Send the HCI command packet to UART for transmission */
+    ret = write(fd, cmd, size);
+    if (ret != size) {
+        ALOGE("%s: WP Send failed with ret value: %d", __FUNCTION__, ret);
+        goto failed;
+    }
+
+    /* Wait for command complete event */
+    err = read_hci_event(fd, rsp, HCI_MAX_EVENT_SIZE);
+    if ( err < 0) {
+        ALOGE("%s: Failed to charging status cmd on Controller", __FUNCTION__);
+        goto failed;
+    }
+
+    ALOGI("%s: WP Received HCI command complete Event from SOC", __FUNCTION__);
+failed:
+    return ret;
 }
 
 
@@ -411,7 +462,7 @@ int rome_edl_set_patch_request(int fd)
         -1, PATCH_HDR_LEN + 1);
 
     /* Total length of the packet to be sent to the Controller */
-    size = (HCI_CMD_IND	+ HCI_COMMAND_HDR_SIZE + cmd[PLEN]);
+    size = (HCI_CMD_IND + HCI_COMMAND_HDR_SIZE + cmd[PLEN]);
 
     /* Send HCI Command packet to Controller */
     err = hci_send_vs_cmd(fd, (unsigned char *)cmd, rsp, size);
@@ -460,7 +511,7 @@ int rome_edl_patch_download_request(int fd)
         index, MAX_DATA_PER_SEGMENT);
 
         /* Total length of the packet to be sent to the Controller */
-        size = (HCI_CMD_IND	+ HCI_COMMAND_HDR_SIZE + cmd[PLEN]);
+        size = (HCI_CMD_IND + HCI_COMMAND_HDR_SIZE + cmd[PLEN]);
 
         /* Initialize the RSP packet everytime to 0 */
         memset(rsp, 0x0, HCI_MAX_EVENT_SIZE);
@@ -497,7 +548,7 @@ int rome_edl_patch_download_request(int fd)
         memset(rsp, 0x0, HCI_MAX_EVENT_SIZE);
 
         /* Total length of the packet to be sent to the Controller */
-        size = (HCI_CMD_IND	+ HCI_COMMAND_HDR_SIZE + cmd[PLEN]);
+        size = (HCI_CMD_IND + HCI_COMMAND_HDR_SIZE + cmd[PLEN]);
 
         /* Send HCI Command packet to Controller */
         err = hci_send_vs_cmd(fd, (unsigned char *)cmd, rsp, size);
@@ -614,7 +665,7 @@ int rome_attach_rampatch(int fd)
         -1, EDL_PATCH_CMD_LEN);
 
     /* Total length of the packet to be sent to the Controller */
-    size = (HCI_CMD_IND	+ HCI_COMMAND_HDR_SIZE + cmd[PLEN]);
+    size = (HCI_CMD_IND + HCI_COMMAND_HDR_SIZE + cmd[PLEN]);
 
     /* Send HCI Command packet to Controller */
     err = hci_send_vs_cmd(fd, (unsigned char *)cmd, rsp, size);
@@ -644,7 +695,7 @@ int rome_rampatch_reset(int fd)
                                         -1, EDL_PATCH_CMD_LEN);
 
     /* Total length of the packet to be sent to the Controller */
-    size = (HCI_CMD_IND	+ HCI_COMMAND_HDR_SIZE + EDL_PATCH_CMD_LEN);
+    size = (HCI_CMD_IND + HCI_COMMAND_HDR_SIZE + EDL_PATCH_CMD_LEN);
 
     /* Send HCI Command packet to Controller */
     err = write(fd, cmd, size);
@@ -853,7 +904,6 @@ int rome_download_tlv_file(int fd)
 
     /* Rampatch TLV file Downloading */
     pdata_buffer = NULL;
-
     if((tlv_size = rome_get_tlv_file(rampatch_file_path)) < 0)
         goto error;
 
@@ -864,7 +914,6 @@ int rome_download_tlv_file(int fd)
         free (pdata_buffer);
         pdata_buffer = NULL;
     }
-
     /* NVM TLV file Downloading */
     if((tlv_size = rome_get_tlv_file(nvm_file_path)) < 0)
         goto error;
@@ -1341,6 +1390,99 @@ error:
 
 }
 
+int rome_wipower_current_charging_status_req(int fd)
+{
+    int size, err = 0;
+    unsigned char cmd[HCI_MAX_CMD_SIZE];
+    unsigned char rsp[HCI_MAX_EVENT_SIZE];
+    hci_command_hdr *cmd_hdr;
+    int flags;
+
+    memset(cmd, 0x0, HCI_MAX_CMD_SIZE);
+
+    cmd_hdr = (void *) (cmd + 1);
+    cmd[0]  = HCI_COMMAND_PKT;
+    cmd_hdr->opcode = cmd_opcode_pack(HCI_VENDOR_CMD_OGF, EDL_WIPOWER_VS_CMD_OCF);
+    cmd_hdr->plen     = EDL_WIP_QUERY_CHARGING_STATUS_LEN;
+    cmd[4]  = EDL_WIP_QUERY_CHARGING_STATUS_CMD;
+
+    /* Total length of the packet to be sent to the Controller */
+    size = (HCI_CMD_IND + HCI_COMMAND_HDR_SIZE + EDL_WIP_QUERY_CHARGING_STATUS_LEN);
+
+    ALOGD("%s: Sending EDL_WIP_QUERY_CHARGING_STATUS_CMD", __FUNCTION__);
+    ALOGD("HCI-CMD: \t0x%x \t0x%x \t0x%x \t0x%x \t0x%x", cmd[0], cmd[1], cmd[2], cmd[3], cmd[4]);
+
+    err = hci_send_wipower_vs_cmd(fd, (unsigned char *)cmd, rsp, size);
+    if ( err != size) {
+        ALOGE("Failed to send EDL_WIP_QUERY_CHARGING_STATUS_CMD command!");
+        goto error;
+    }
+
+    /* Check for response from the Controller */
+    if (read_vs_hci_event(fd, rsp, HCI_MAX_EVENT_SIZE) < 0) {
+        err = -ETIMEDOUT;
+        ALOGI("%s: WP Failed to get HCI-VS Event from SOC", __FUNCTION__);
+        goto error;
+    }
+
+error:
+    return err;
+}
+
+int check_embedded_mode(int fd) {
+    int err = 0;
+
+    wipower_flag = 0;
+    /* Get current wipower charging status */
+    if ((err = rome_wipower_current_charging_status_req(fd)) < 0)
+    {
+        ALOGI("%s: Wipower status req failed (0x%x)", __FUNCTION__, err);
+    }
+    usleep(500);
+
+    ALOGE("%s: wipower_flag: %d", __FUNCTION__, wipower_flag);
+
+    return wipower_flag;
+}
+
+int rome_wipower_forward_handoff_req(int fd)
+{
+    int size, err = 0;
+    unsigned char cmd[HCI_MAX_CMD_SIZE];
+    unsigned char rsp[HCI_MAX_EVENT_SIZE];
+    hci_command_hdr *cmd_hdr;
+    int flags;
+
+    memset(cmd, 0x0, HCI_MAX_CMD_SIZE);
+
+    cmd_hdr = (void *) (cmd + 1);
+    cmd[0]  = HCI_COMMAND_PKT;
+    cmd_hdr->opcode = cmd_opcode_pack(HCI_VENDOR_CMD_OGF, EDL_WIPOWER_VS_CMD_OCF);
+    cmd_hdr->plen     = EDL_WIP_START_HANDOFF_TO_HOST_LEN;
+    cmd[4]  = EDL_WIP_START_HANDOFF_TO_HOST_CMD;
+
+    /* Total length of the packet to be sent to the Controller */
+    size = (HCI_CMD_IND + HCI_COMMAND_HDR_SIZE + EDL_WIP_START_HANDOFF_TO_HOST_LEN);
+
+    ALOGD("%s: Sending EDL_WIP_START_HANDOFF_TO_HOST_CMD", __FUNCTION__);
+    ALOGD("HCI-CMD: \t0x%x \t0x%x \t0x%x \t0x%x \t0x%x", cmd[0], cmd[1], cmd[2], cmd[3], cmd[4]);
+    err = hci_send_wipower_vs_cmd(fd, (unsigned char *)cmd, rsp, size);
+    if ( err != size) {
+        ALOGE("Failed to send EDL_WIP_START_HANDOFF_TO_HOST_CMD command!");
+        goto error;
+    }
+
+    /* Check for response from the Controller */
+    if (read_vs_hci_event(fd, rsp, HCI_MAX_EVENT_SIZE) < 0) {
+        err = -ETIMEDOUT;
+        ALOGI("%s: WP Failed to get HCI-VS Event from SOC", __FUNCTION__);
+        goto error;
+    }
+
+error:
+    return err;
+}
+
 
 static void enable_controller_log (int fd)
 {
@@ -1393,6 +1535,17 @@ int rome_soc_init(int fd, char *bdaddr)
 
     ALOGI(" %s ", __FUNCTION__);
 
+    /* If wipower charging is going on in embedded mode then start hand off req */
+    if (wipower_flag == WIPOWER_IN_EMBEDDED_MODE && wipower_handoff_ready != NON_WIPOWER_MODE)
+    {
+        wipower_flag = 0;
+        wipower_handoff_ready = 0;
+        if ((err = rome_wipower_forward_handoff_req(fd)) < 0)
+        {
+            ALOGI("%s: Wipower handoff failed (0x%x)", __FUNCTION__, err);
+        }
+    }
+
     /* Get Rome version information */
     if((err = rome_patch_ver_req(fd)) <0){
         ALOGI("%s: Fail to get Rome Version (0x%x)", __FUNCTION__, err);
@@ -1440,7 +1593,7 @@ int rome_soc_init(int fd, char *bdaddr)
 
                 /* Change baud rate 115.2 kbps to 3Mbps*/
                 err = rome_hci_reset_req(fd);
-                if ( err <0 ) {
+                if (err < 0) {
                     ALOGE("HCI Reset Failed !!");
                     goto error;
                 }
@@ -1472,7 +1625,6 @@ download:
                 goto error;
             }
             ALOGI("%s: Baud rate changed successfully ", __FUNCTION__);
-
             /* Donwload TLV files (rampatch, NVM) */
             err = rome_download_tlv_file(fd);
             if (err < 0) {
@@ -1480,7 +1632,6 @@ download:
                 goto error;
             }
             ALOGI("%s: Download TLV file successfully ", __FUNCTION__);
-
             /* This function sends a vendor specific command to enable/disable
              * controller logs on need. Once the command is received to the SOC,
              * It would start sending cotroller's print strings and LMP RX/TX
@@ -1495,6 +1646,13 @@ download:
 
             /* Send HCI Reset */
             err = rome_hci_reset(fd);
+            if ( err <0 ) {
+                ALOGE("HCI Reset Failed !!");
+                goto error;
+            }
+
+            ALOGI("HCI Reset is done\n");
+
             break;
         case ROME_VER_UNKNOWN:
         default:
