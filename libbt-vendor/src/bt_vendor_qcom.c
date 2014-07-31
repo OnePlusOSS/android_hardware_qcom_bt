@@ -381,7 +381,12 @@ static int bt_powerup(int en )
         goto done;
     }
 #endif
-    asprintf(&enable_ldo_path, "/sys/class/rfkill/rfkill%d/device/extldo", rfkill_id);
+    ret = asprintf(&enable_ldo_path, "/sys/class/rfkill/rfkill%d/device/extldo", rfkill_id);
+    if( (ret < 0 ) || (enable_ldo_path == NULL) )
+    {
+        ALOGE("Memory Allocation failure");
+        return -1;
+    }
     if ((fd_ldo = open(enable_ldo_path, O_RDWR)) < 0) {
         ALOGE("open(%s) failed: %s (%d)", enable_ldo_path, strerror(errno), errno);
         return -1;
