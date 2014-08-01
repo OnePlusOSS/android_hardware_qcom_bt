@@ -631,7 +631,8 @@ static int op(bt_vendor_opcode_t opcode, void *param)
 
         case BT_VND_OP_SCO_CFG:
             {
-                bt_vendor_cbacks->scocfg_cb(BT_VND_OP_RESULT_SUCCESS); //dummy
+                if (bt_vendor_cbacks)
+                    bt_vendor_cbacks->scocfg_cb(BT_VND_OP_RESULT_SUCCESS); //dummy
             }
             break;
 #ifdef BT_SOC_TYPE_ROME
@@ -809,11 +810,12 @@ static int op(bt_vendor_opcode_t opcode, void *param)
                 else {
                     lpm_set_ar3k(UPIO_LPM_MODE, UPIO_DEASSERT, 0);
                 }
-
-                bt_vendor_cbacks->lpm_cb(BT_VND_OP_RESULT_SUCCESS);
+                if (bt_vendor_cbacks )
+                    bt_vendor_cbacks->lpm_cb(BT_VND_OP_RESULT_SUCCESS);
             }
             else {
-                bt_vendor_cbacks->lpm_cb(BT_VND_OP_RESULT_SUCCESS); //dummy
+                if (bt_vendor_cbacks)
+                    bt_vendor_cbacks->lpm_cb(BT_VND_OP_RESULT_SUCCESS); //dummy
             }
             break;
 
