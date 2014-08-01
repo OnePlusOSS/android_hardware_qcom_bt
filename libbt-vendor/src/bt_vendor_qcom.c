@@ -47,6 +47,7 @@ extern int hw_config(int nState);
 
 extern int is_hw_ready();
 extern int rome_soc_init(int fd, char *bdaddr);
+extern int check_embedded_mode(int fd);
 /******************************************************************************
 **  Variables
 ******************************************************************************/
@@ -161,10 +162,9 @@ int bt_wait_for_service_done(void)
 
         if (strcmp(service_status, "") != 0) {
             usleep(200000);
-        }
-	else {
+        } else {
             break;
-	}
+        }
     }
 
     return 0;
@@ -394,7 +394,7 @@ static int bt_powerup(int en )
     }
     if (!memcmp(enable_ldo, "true", 4)) {
         ALOGI("External LDO has been configured");
-	enable_extldo = TRUE;
+        enable_extldo = TRUE;
     }
 
     ALOGE("Write %c to rfkill\n", on);
@@ -406,7 +406,7 @@ static int bt_powerup(int en )
         bt_semaphore_release(lock_fd);
         bt_semaphore_destroy(lock_fd);
 #endif
-	return -1;
+        return -1;
     }
 #ifdef BT_SOC_TYPE_ROME
     if(on == '0'){
@@ -574,6 +574,7 @@ static int op(bt_vendor_opcode_t opcode, void *param)
     int nCnt = 0;
     int nState = -1;
     bool is_ant_req = false;
+    char wipower_status[PROPERTY_VALUE_MAX];
 
     ALOGV("bt-vendor : op for %d", opcode);
 
@@ -692,6 +693,18 @@ static int op(bt_vendor_opcode_t opcode, void *param)
                                     ALOGE("userial_vendor_open returns err");
                                     retval = -1;
                                 } else {
+                                    /* Uncomment later
+                                    property_get("ro.bluetooth.wipower", wipower_status, false);
+                                    The below property is added for test purpose will be later
+                                    disabled and above property will be used */
+                                    property_get("persist.bluetooth.wipower", wipower_status, false);
+                                    if(strcmp(wipower_status, "true") == 0) {
+                                       /* wait for embedded mode startup */
+                                        usleep(WAIT_TIMEOUT - (WAIT_TIMEOUT/4));
+                                        check_embedded_mode(fd);
+                                    } else {
+                                        ALOGI("Wipower not enabled");
+                                    }
                                     ALOGV("rome_soc_init is started");
                                     property_set("wc_transport.soc_initialized", "0");
                                     /* Always read BD address from NV file */
