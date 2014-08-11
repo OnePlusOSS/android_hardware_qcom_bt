@@ -89,6 +89,10 @@
 #endif
 #endif // (BT_WAKE_VIA_USERIAL_IOCTL==TRUE)
 
+/* UART CLOCK IOCTLS*/
+#define USERIAL_OP_CLK_ON 0x5441
+#define USERIAL_OP_CLK_OFF 0x5442
+#define USERIAL_OP_CLK_STATE 0x5443
 /******************************************************************************
 **  Type definitions
 ******************************************************************************/

@@ -693,6 +693,9 @@ static int op(bt_vendor_opcode_t opcode, void *param)
                                     ALOGE("userial_vendor_open returns err");
                                     retval = -1;
                                 } else {
+                                    /* Clock on */
+                                    userial_clock_operation(fd, USERIAL_OP_CLK_ON);
+                                    ALOGD("userial clock on");
                                     property_get("ro.bluetooth.wipower", wipower_status, false);
                                     if(strcmp(wipower_status, "true") == 0) {
                                        /* wait for embedded mode startup */
@@ -711,9 +714,11 @@ static int op(bt_vendor_opcode_t opcode, void *param)
                                     }
                                     if(rome_soc_init(fd,vnd_local_bd_addr)<0) {
                                         retval = -1;
+                                        userial_clock_operation(fd, USERIAL_OP_CLK_OFF);
                                     } else {
                                         ALOGV("rome_soc_init is completed");
                                         property_set("wc_transport.soc_initialized", "1");
+                                        userial_clock_operation(fd, USERIAL_OP_CLK_OFF);
                                         /*Close the UART port*/
                                         close(fd);
                                     }
@@ -745,6 +750,9 @@ static int op(bt_vendor_opcode_t opcode, void *param)
                                  else {
                                      retval = -1;
                                  }
+                             } else {
+                               if (fd >= 0)
+                                  close(fd);
                              }
                         }
                         break;
