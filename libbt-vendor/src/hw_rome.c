@@ -1425,6 +1425,15 @@ int rome_wipower_current_charging_status_req(int fd)
         goto error;
     }
 
+    /* Read Command Complete Event - This is extra routine for ROME 1.0. From ROM 2.0, it should be removed. */
+    if (rsp[4] >= NON_WIPOWER_MODE) {
+        err = read_hci_event(fd, rsp, HCI_MAX_EVENT_SIZE);
+        if (err < 0) {
+            ALOGE("%s: Failed to get charging status", __FUNCTION__);
+            goto error;
+        }
+    }
+
 error:
     return err;
 }

@@ -699,14 +699,10 @@ static int op(bt_vendor_opcode_t opcode, void *param)
                                     ALOGE("userial_vendor_open returns err");
                                     retval = -1;
                                 } else {
-                                    /* Uncomment later
                                     property_get("ro.bluetooth.wipower", wipower_status, false);
-                                    The below property is added for test purpose will be later
-                                    disabled and above property will be used */
-                                    property_get("persist.bluetooth.wipower", wipower_status, false);
                                     if(strcmp(wipower_status, "true") == 0) {
                                        /* wait for embedded mode startup */
-                                        usleep(WAIT_TIMEOUT - (WAIT_TIMEOUT/4));
+                                        usleep(WAIT_TIMEOUT);
                                         check_embedded_mode(fd);
                                     } else {
                                         ALOGI("Wipower not enabled");
