@@ -1648,6 +1648,10 @@ int rome_soc_init(int fd, char *bdaddr)
         case ROME_VER_3_0:
             rampatch_file_path = ROME_RAMPATCH_TLV_3_0_0_PATH;
             nvm_file_path = ROME_NVM_TLV_3_0_0_PATH;
+            goto download;
+        case ROME_VER_3_2:
+            rampatch_file_path = ROME_RAMPATCH_TLV_3_0_2_PATH;
+            nvm_file_path = ROME_NVM_TLV_3_0_2_PATH;
 
 download:
             /* Change baud rate 115.2 kbps to 3Mbps*/
