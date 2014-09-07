@@ -53,6 +53,14 @@ extern "C" {
 #include "hci_uart.h"
 #include "hw_rome.h"
 
+#define QBT_HOST_VERSION_MAJOR            3
+#define QBT_HOST_VERSION_MINOR            0
+#define QBT_HOST_VERSION_PATCH            0
+#define QBT_HOST_VERSION_BUILD            001
+#define QBT_HOST_VERSIONSTR               "3.0.0.001"
+
+#define BT_VERSION_FILEPATH "/data/misc/bluedroid/bt_version.info"
+
 #ifdef __cplusplus
 }
 #endif
@@ -83,9 +91,13 @@ extern uint8_t vnd_local_bd_addr[6];
 
 int get_vs_hci_event(unsigned char *rsp)
 {
-    int err = 0, i, soc_id =0;
+    int err = 0;
     unsigned char paramlen = 0;
     unsigned char EMBEDDED_MODE_CHECK = 0x02;
+    FILE *btversionfile = 0;
+    unsigned int soc_id = 0;
+    unsigned int productid = 0;
+    unsigned short patchversion = 0;
 
     if( (rsp[EVENTCODE_OFFSET] == VSEVENT_CODE) || (rsp[EVENTCODE_OFFSET] == EVT_CMD_COMPLETE))
         ALOGI("%s: Received HCI-Vendor Specific event", __FUNCTION__);
@@ -109,7 +121,7 @@ int get_vs_hci_event(unsigned char *rsp)
             case EDL_PATCH_VER_RES_EVT:
             case EDL_APP_VER_RES_EVT:
                 ALOGI("\t Current Product ID\t\t: 0x%08x",
-                    (unsigned int)(rsp[PATCH_PROD_ID_OFFSET +3] << 24 |
+                    productid = (unsigned int)(rsp[PATCH_PROD_ID_OFFSET +3] << 24 |
                                         rsp[PATCH_PROD_ID_OFFSET+2] << 16 |
                                         rsp[PATCH_PROD_ID_OFFSET+1] << 8 |
                                         rsp[PATCH_PROD_ID_OFFSET]  ));
@@ -132,6 +144,17 @@ int get_vs_hci_event(unsigned char *rsp)
                                                 rsp[PATCH_SOC_VER_OFFSET+2] << 16 |
                                                 rsp[PATCH_SOC_VER_OFFSET+1] << 8 |
                                                 rsp[PATCH_SOC_VER_OFFSET]  ));
+                }
+
+                if (NULL != (btversionfile = fopen(BT_VERSION_FILEPATH, "wb"))) {
+                    fprintf(btversionfile, "Bluetooth Controller Product ID    : 0x%08x\n", productid);
+                    fprintf(btversionfile, "Bluetooth Controller Patch Version : 0x%04x\n", patchversion);
+                    fprintf(btversionfile, "Bluetooth Controller Build Version : 0x%04x\n", rome_ver);
+                    fprintf(btversionfile, "Bluetooth Controller SOC Version   : 0x%08x\n", soc_id);
+                    fprintf(btversionfile, "Bluetooth Host Version             : %s\n", QBT_HOST_VERSIONSTR);
+                    fclose(btversionfile);
+                }else {
+                    ALOGI("Failed to dump SOC version info. Errno:%d", errno);
                 }
 
                 /* Rome Chipset Version can be decided by Patch version and SOC version,
