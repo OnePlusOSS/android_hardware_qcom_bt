@@ -53,13 +53,7 @@ extern "C" {
 #include "hci_uart.h"
 #include "hw_rome.h"
 
-#define QBT_HOST_VERSION_MAJOR            3
-#define QBT_HOST_VERSION_MINOR            0
-#define QBT_HOST_VERSION_PATCH            0
-#define QBT_HOST_VERSION_BUILD            001
-#define QBT_HOST_VERSIONSTR               "3.0.0.001"
-
-#define BT_VERSION_FILEPATH "/data/misc/bluedroid/bt_version.info"
+#define BT_VERSION_FILEPATH "/data/misc/bluedroid/bt_fw_version.txt"
 
 #ifdef __cplusplus
 }
@@ -151,7 +145,6 @@ int get_vs_hci_event(unsigned char *rsp)
                     fprintf(btversionfile, "Bluetooth Controller Patch Version : 0x%04x\n", patchversion);
                     fprintf(btversionfile, "Bluetooth Controller Build Version : 0x%04x\n", rome_ver);
                     fprintf(btversionfile, "Bluetooth Controller SOC Version   : 0x%08x\n", soc_id);
-                    fprintf(btversionfile, "Bluetooth Host Version             : %s\n", QBT_HOST_VERSIONSTR);
                     fclose(btversionfile);
                 }else {
                     ALOGI("Failed to dump SOC version info. Errno:%d", errno);
