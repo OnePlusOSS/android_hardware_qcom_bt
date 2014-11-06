@@ -218,7 +218,13 @@ int get_vs_hci_event(unsigned char *rsp)
                ALOGE("%s: WiPower Charging hand off not ready!!!", __FUNCTION__);
             }
             break;
-
+        case HCI_VS_GET_ADDON_FEATURES_EVENT:
+            if ((rsp[4] & ADDON_FEATURES_EVT_WIPOWER_MASK))
+            {
+               ALOGD("%s: WiPower feature supported!!", __FUNCTION__);
+               property_set("persist.bluetooth.a4wp", "true");
+            }
+            break;
         default:
             ALOGE("%s: Not a valid status!!!", __FUNCTION__);
             err = -1;
@@ -1454,6 +1460,42 @@ error:
     return err;
 }
 
+int addon_feature_req(int fd)
+{
+    int size, err = 0;
+    unsigned char cmd[HCI_MAX_CMD_SIZE];
+    unsigned char rsp[HCI_MAX_EVENT_SIZE];
+    hci_command_hdr *cmd_hdr;
+    int flags;
+
+    memset(cmd, 0x0, HCI_MAX_CMD_SIZE);
+
+    cmd_hdr = (void *) (cmd + 1);
+    cmd[0]  = HCI_COMMAND_PKT;
+    cmd_hdr->opcode = cmd_opcode_pack(HCI_VENDOR_CMD_OGF, HCI_VS_GET_ADDON_FEATURES_SUPPORT);
+    cmd_hdr->plen     = 0x00;
+
+    /* Total length of the packet to be sent to the Controller */
+    size = (HCI_CMD_IND + HCI_COMMAND_HDR_SIZE + EDL_WIP_QUERY_CHARGING_STATUS_LEN);
+
+    ALOGD("%s: Sending HCI_VS_GET_ADDON_FEATURES_SUPPORT", __FUNCTION__);
+    ALOGD("HCI-CMD: \t0x%x \t0x%x \t0x%x \t0x%x \t0x%x", cmd[0], cmd[1], cmd[2], cmd[3], cmd[4]);
+    err = hci_send_vs_cmd(fd, (unsigned char *)cmd, rsp, size);
+    if ( err != size) {
+        ALOGE("Failed to send HCI_VS_GET_ADDON_FEATURES_SUPPORT command!");
+        goto error;
+    }
+
+    err = read_hci_event(fd, rsp, HCI_MAX_EVENT_SIZE);
+    if (err < 0) {
+        ALOGE("%s: Failed to get feature request", __FUNCTION__);
+        goto error;
+    }
+error:
+    return err;
+}
+
+
 int check_embedded_mode(int fd) {
     int err = 0;
 
@@ -1468,6 +1510,17 @@ int check_embedded_mode(int fd) {
     ALOGE("%s: wipower_flag: %d", __FUNCTION__, wipower_flag);
 
     return wipower_flag;
+}
+
+int rome_get_addon_feature_list(fd) {
+    int err = 0;
+
+    /* Get addon features that are supported by FW */
+    if ((err = addon_feature_req(fd)) < 0)
+    {
+        ALOGE("%s: failed (0x%x)", __FUNCTION__, err);
+    }
+    return err;
 }
 
 int rome_wipower_forward_handoff_req(int fd)

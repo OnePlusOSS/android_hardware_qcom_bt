@@ -76,7 +76,8 @@
 /* VS Opcode */
 #define HCI_PATCH_CMD_OCF                       (0)
 #define EDL_SET_BAUDRATE_CMD_OCF        (0x48)
-#define EDL_WIPOWER_VS_CMD_OCF          (0x0c)
+#define EDL_WIPOWER_VS_CMD_OCF          (0x1f)
+#define HCI_VS_GET_ADDON_FEATURES_SUPPORT   (0x1d)
 
 /* VS Commands */
 #define VSC_SET_BAUDRATE_REQ_LEN        (1)
@@ -102,6 +103,7 @@
 #define EDL_APP_VER_RES_EVT                  (0x02)
 #define EDL_WIP_QUERY_CHARGING_STATUS_EVT    (0x18)
 #define EDL_WIP_START_HANDOFF_TO_HOST_EVENT  (0x19)
+#define HCI_VS_GET_ADDON_FEATURES_EVENT      (0x1B)
 
 
 /* Status Codes of HCI CMD execution*/
@@ -117,6 +119,9 @@
 /* Wipower status codes */
 #define WIPOWER_IN_EMBEDDED_MODE 0x01
 #define NON_WIPOWER_MODE 0x02
+
+/* mask to validate support for wipower */
+#define ADDON_FEATURES_EVT_WIPOWER_MASK      (0x01)
 
 /* TLV_TYPE */
 #define TLV_TYPE_PATCH                  (1)

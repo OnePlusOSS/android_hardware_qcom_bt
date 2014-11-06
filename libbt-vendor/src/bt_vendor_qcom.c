@@ -37,6 +37,7 @@
 #include <cutils/sockets.h>
 #include <linux/un.h>
 #include "bt_vendor_persist.h"
+#include "hw_rome.h"
 
 #define WAIT_TIMEOUT 200000
 
@@ -48,6 +49,8 @@ extern int hw_config(int nState);
 extern int is_hw_ready();
 extern int rome_soc_init(int fd, char *bdaddr);
 extern int check_embedded_mode(int fd);
+extern int rome_get_addon_feature_list(int fd);
+extern int rome_ver;
 /******************************************************************************
 **  Variables
 ******************************************************************************/
@@ -580,6 +583,7 @@ static int op(bt_vendor_opcode_t opcode, void *param)
     int nState = -1;
     bool is_ant_req = false;
     char wipower_status[PROPERTY_VALUE_MAX];
+    char bt_version[PROPERTY_VALUE_MAX];
 
     ALOGV("bt-vendor : op for %d", opcode);
 
@@ -702,13 +706,14 @@ static int op(bt_vendor_opcode_t opcode, void *param)
                                     /* Clock on */
                                     userial_clock_operation(fd, USERIAL_OP_CLK_ON);
                                     ALOGD("userial clock on");
-                                    property_get("ro.bluetooth.wipower", wipower_status, false);
-                                    if(strcmp(wipower_status, "true") == 0) {
-                                       /* wait for embedded mode startup */
-                                        usleep(WAIT_TIMEOUT);
-                                        check_embedded_mode(fd);
-                                    } else {
-                                        ALOGI("Wipower not enabled");
+                                    property_get("persist.BT3_2.version", bt_version, false);
+                                    if(strcmp(bt_version, "true") == 0) {
+                                        property_get("ro.bluetooth.wipower", wipower_status, false);
+                                        if(strcmp(wipower_status, "true") == 0) {
+                                            check_embedded_mode(fd);
+                                        } else {
+                                            ALOGI("Wipower not enabled");
+                                        }
                                     }
                                     ALOGV("rome_soc_init is started");
                                     property_set("wc_transport.soc_initialized", "0");
@@ -749,6 +754,13 @@ static int op(bt_vendor_opcode_t opcode, void *param)
                                  if (fd != -1) {
                                      ALOGV("%s: received the socket fd: %d is_ant_req: %d\n",
                                                                  __func__, fd, is_ant_req);
+                                     if(strcmp(bt_version, "true") == 0) {
+                                         if (rome_ver >= ROME_VER_3_0) {
+                                             /*  get rome supported feature request */
+                                             ALOGE("%s: %x08 %0x", __FUNCTION__,rome_ver, ROME_VER_3_0);
+                                             //rome_get_addon_feature_list(fd);
+                                         }
+                                     }
                                      for (idx=0; idx < CH_MAX; idx++)
                                           (*fd_array)[idx] = fd;
                                           retval = 1;
