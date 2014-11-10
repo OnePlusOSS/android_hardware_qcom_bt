@@ -758,7 +758,7 @@ static int op(bt_vendor_opcode_t opcode, void *param)
                                          if (rome_ver >= ROME_VER_3_0) {
                                              /*  get rome supported feature request */
                                              ALOGE("%s: %x08 %0x", __FUNCTION__,rome_ver, ROME_VER_3_0);
-                                             //rome_get_addon_feature_list(fd);
+                                             rome_get_addon_feature_list(fd);
                                          }
                                      }
                                      for (idx=0; idx < CH_MAX; idx++)
