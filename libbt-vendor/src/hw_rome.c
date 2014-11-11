@@ -72,6 +72,7 @@ static unsigned int wipower_flag = 0;
 static unsigned int wipower_handoff_ready = 0;
 char *rampatch_file_path;
 char *nvm_file_path;
+char *fw_su_info = NULL;
 extern char enable_extldo;
 
 /******************************************************************************
@@ -796,6 +797,18 @@ int rome_get_tlv_file(char *file_path)
         ALOGI("Product ID\t\t\t : 0x%04x\n", ptlv_header->tlv.patch.prod_id);
         ALOGI("Rom Build Version\t\t : 0x%04x\n", ptlv_header->tlv.patch.build_ver);
         ALOGI("Patch Version\t\t : 0x%04x\n", ptlv_header->tlv.patch.patch_ver);
+        if (fw_su_info ) {
+            FILE *btversionfile = 0;
+            if (NULL != (btversionfile = fopen(BT_VERSION_FILEPATH, "a+b"))) {
+                fprintf(btversionfile, "Bluetooth Controller FW SU Version : 0x%04x (%s-%05d)\n",
+                    ptlv_header->tlv.patch.patch_ver,
+                    fw_su_info,
+                    (ptlv_header->tlv.patch.patch_ver - 0x0111 -1 )
+                    );
+                fclose(btversionfile);
+            }
+        }
+
         ALOGI("Reserved\t\t\t : 0x%x\n", ptlv_header->tlv.patch.reserved2);
         ALOGI("Patch Entry Address\t\t : 0x%x\n", (ptlv_header->tlv.patch.patch_entry_addr));
         ALOGI("====================================================");
@@ -1693,10 +1706,12 @@ int rome_soc_init(int fd, char *bdaddr)
         case ROME_VER_3_0:
             rampatch_file_path = ROME_RAMPATCH_TLV_3_0_0_PATH;
             nvm_file_path = ROME_NVM_TLV_3_0_0_PATH;
+            fw_su_info = ROME_3_1_FW_SU;
             goto download;
         case ROME_VER_3_2:
             rampatch_file_path = ROME_RAMPATCH_TLV_3_0_2_PATH;
             nvm_file_path = ROME_NVM_TLV_3_0_2_PATH;
+            fw_su_info = ROME_3_2_FW_SU;
 
 download:
             /* Change baud rate 115.2 kbps to 3Mbps*/
