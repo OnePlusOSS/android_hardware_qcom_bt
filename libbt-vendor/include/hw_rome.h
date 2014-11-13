@@ -156,6 +156,12 @@
 #define ROME_NVM_TLV_3_0_2_PATH         "/system/etc/firmware/nvm_tlv_3.2.bin"
 
 
+/* This header value in rampatch file decides event handling mechanism in the HOST */
+#define ROME_SKIP_EVT_NONE     0x00
+#define ROME_SKIP_EVT_VSE      0x01
+#define ROME_SKIP_EVT_CC       0x02
+#define ROME_SKIP_EVT_VSE_CC   0x03
+
 /******************************************************************************
 **  Local type definitions
 ******************************************************************************/
@@ -179,7 +185,8 @@ typedef struct {
     unsigned int  tlv_patch_data_len;
     unsigned char sign_ver;
     unsigned char sign_algorithm;
-    unsigned short reserved1;
+    unsigned char dwnd_cfg;
+    unsigned char reserved1;
     unsigned short prod_id;
     unsigned short build_ver;
     unsigned short patch_ver;
