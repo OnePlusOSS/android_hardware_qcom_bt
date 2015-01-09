@@ -163,6 +163,14 @@
 #define ROME_3_1_FW_SU  "bprm.cnss.3.1"
 #define ROME_3_2_FW_SU  "btfwp.cnss.3.2"
 
+/* Rome 3.1 FW SU release has been branched from rome 3.0 SU 224
+    So, rome 3.1 formula is SU = patch version -(0xE0 = 224) - 0x111 -1
+*/
+#define ROME_3_1_FW_SW_OFFSET   0x01F2
+
+/* Rome 3.2 FW SU formula is SU = patch version - 0x111 -1 */
+#define ROME_3_2_FW_SW_OFFSET   0x0112
+
 /* This header value in rampatch file decides event handling mechanism in the HOST */
 #define ROME_SKIP_EVT_NONE     0x00
 #define ROME_SKIP_EVT_VSE      0x01

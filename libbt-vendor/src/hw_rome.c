@@ -74,6 +74,7 @@ static unsigned int wipower_handoff_ready = 0;
 char *rampatch_file_path;
 char *nvm_file_path;
 char *fw_su_info = NULL;
+unsigned short fw_su_offset =0;
 extern char enable_extldo;
 unsigned char wait_vsc_evt = TRUE;
 
@@ -809,7 +810,7 @@ int rome_get_tlv_file(char *file_path)
                 fprintf(btversionfile, "Bluetooth Controller FW SU Version : 0x%04x (%s-%05d)\n",
                     ptlv_header->tlv.patch.patch_ver,
                     fw_su_info,
-                    (ptlv_header->tlv.patch.patch_ver - 0x0111 -1 )
+                    (ptlv_header->tlv.patch.patch_ver - fw_su_offset )
                     );
                 fclose(btversionfile);
             }
@@ -1775,11 +1776,13 @@ int rome_soc_init(int fd, char *bdaddr)
             rampatch_file_path = ROME_RAMPATCH_TLV_3_0_0_PATH;
             nvm_file_path = ROME_NVM_TLV_3_0_0_PATH;
             fw_su_info = ROME_3_1_FW_SU;
+            fw_su_offset = ROME_3_1_FW_SW_OFFSET;
             goto download;
         case ROME_VER_3_2:
             rampatch_file_path = ROME_RAMPATCH_TLV_3_0_2_PATH;
             nvm_file_path = ROME_NVM_TLV_3_0_2_PATH;
             fw_su_info = ROME_3_2_FW_SU;
+            fw_su_offset =  ROME_3_2_FW_SW_OFFSET;
 
 download:
             /* Change baud rate 115.2 kbps to 3Mbps*/
