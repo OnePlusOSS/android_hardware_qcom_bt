@@ -697,6 +697,7 @@ static int op(bt_vendor_opcode_t opcode, void *param)
                         break;
                     case BT_SOC_ROME:
                         {
+                            property_get("persist.BT3_2.version", bt_version, false);
                             if (!is_soc_initialized()) {
                                 fd = userial_vendor_open((tUSERIAL_CFG *) &userial_init_cfg);
                                 if (fd < 0) {
@@ -706,7 +707,6 @@ static int op(bt_vendor_opcode_t opcode, void *param)
                                     /* Clock on */
                                     userial_clock_operation(fd, USERIAL_OP_CLK_ON);
                                     ALOGD("userial clock on");
-                                    property_get("persist.BT3_2.version", bt_version, false);
                                     if(strcmp(bt_version, "true") == 0) {
                                         property_get("ro.bluetooth.wipower", wipower_status, false);
                                         if(strcmp(wipower_status, "true") == 0) {
@@ -754,7 +754,7 @@ static int op(bt_vendor_opcode_t opcode, void *param)
                                  if (fd != -1) {
                                      ALOGV("%s: received the socket fd: %d is_ant_req: %d\n",
                                                                  __func__, fd, is_ant_req);
-                                     if(strcmp(bt_version, "true") == 0) {
+                                     if((strcmp(bt_version, "true") == 0) && !is_ant_req) {
                                          if (rome_ver >= ROME_VER_3_0) {
                                              /*  get rome supported feature request */
                                              ALOGE("%s: %x08 %0x", __FUNCTION__,rome_ver, ROME_VER_3_0);
