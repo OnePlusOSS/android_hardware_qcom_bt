@@ -25,6 +25,7 @@
  ******************************************************************************/
 
 #define LOG_TAG "bt_vendor"
+#define BLUETOOTH_MAC_ADDR_BOOT_PROPERTY "ro.boot.btmacaddr"
 
 #include <utils/Log.h>
 #include <cutils/properties.h>
@@ -529,7 +530,32 @@ static int init(const bt_vendor_callbacks_t* p_cb, unsigned char *local_bdaddr)
     return 0;
 }
 
+#ifdef READ_BT_ADDR_FROM_PROP
+static bool validate_tok(char* bdaddr_tok) {
+    int i = 0;
+    bool ret;
 
+    if (strlen(bdaddr_tok) != 2) {
+        ret = FALSE;
+        ALOGE("Invalid token length");
+    } else {
+        ret = TRUE;
+        for (i=0; i<2; i++) {
+            if ((bdaddr_tok[i] >= '0' && bdaddr_tok[i] <= '9') ||
+                (bdaddr_tok[i] >= 'A' && bdaddr_tok[i] <= 'F') ||
+                (bdaddr_tok[i] >= 'a' && bdaddr_tok[i] <= 'f')) {
+                ret = TRUE;
+                ALOGV("%s: tok %s @ %d is good", __func__, bdaddr_tok, i);
+             } else {
+                ret = FALSE;
+                ALOGE("invalid character in tok: %s at ind: %d", bdaddr_tok, i);
+                break;
+             }
+        }
+    }
+    return ret;
+}
+#endif /*READ_BT_ADDR_FROM_PROP*/
 
 int connect_to_local_socket(char* name) {
        socklen_t len; int sk = -1;
@@ -584,6 +610,14 @@ static int op(bt_vendor_opcode_t opcode, void *param)
     bool is_ant_req = false;
     char wipower_status[PROPERTY_VALUE_MAX];
     char emb_wp_mode[PROPERTY_VALUE_MAX];
+    char bt_version[PROPERTY_VALUE_MAX];
+    bool ignore_boot_prop = TRUE;
+#ifdef READ_BT_ADDR_FROM_PROP
+    int i = 0;
+    static char bd_addr[PROPERTY_VALUE_MAX];
+    uint8_t local_bd_addr_from_prop[6];
+    char* tok;
+#endif
 
     ALOGV("bt-vendor : op for %d", opcode);
 
@@ -717,8 +751,43 @@ static int op(bt_vendor_opcode_t opcode, void *param)
                                     }
                                     ALOGV("rome_soc_init is started");
                                     property_set("wc_transport.soc_initialized", "0");
+#ifdef READ_BT_ADDR_FROM_PROP
+                                    /*Give priority to read BD address from boot property*/
+                                    ignore_boot_prop = FALSE;
+                                    if (property_get(BLUETOOTH_MAC_ADDR_BOOT_PROPERTY, bd_addr, NULL)) {
+                                        ALOGV("BD address read from Boot property: %s\n", bd_addr);
+                                        tok =  strtok(bd_addr, ":");
+                                        while (tok != NULL) {
+                                            ALOGV("bd add [%d]: %d ", i, strtol(tok, NULL, 16));
+                                            if (i>=6) {
+                                                ALOGE("bd property of invalid length");
+                                                ignore_boot_prop = TRUE;
+                                                break;
+                                            }
+                                            if (!validate_tok(tok)) {
+                                                ALOGE("Invalid token in BD address");
+                                                ignore_boot_prop = TRUE;
+                                                break;
+                                            }
+                                            local_bd_addr_from_prop[5-i] = strtol(tok, NULL, 16);
+                                            tok = strtok(NULL, ":");
+                                            i++;
+                                        }
+                                        if (i == 6 && !ignore_boot_prop) {
+                                            ALOGV("Valid BD address read from prop");
+                                            memcpy(vnd_local_bd_addr, local_bd_addr_from_prop, sizeof(vnd_local_bd_addr));
+                                            ignore_boot_prop = FALSE;
+                                        } else {
+                                            ALOGE("There are not enough tokens in BD addr");
+                                            ignore_boot_prop = TRUE;
+                                        }
+                                    } else {
+                                        ALOGE("BD address boot property not set");
+                                        ignore_boot_prop = TRUE;
+                                    }
+#endif //READ_BT_ADDR_FROM_PROP
                                     /* Always read BD address from NV file */
-                                    if(!bt_vendor_nv_read(1, vnd_local_bd_addr))
+                                    if(ignore_boot_prop && !bt_vendor_nv_read(1, vnd_local_bd_addr))
                                     {
                                        /* Since the BD address is configured in boot time We should not be here */
                                        ALOGI("Failed to read BD address. Use the one from bluedroid stack/ftm");
