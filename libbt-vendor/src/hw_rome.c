@@ -1558,10 +1558,10 @@ int addon_feature_req(int fd)
     cmd_hdr->plen     = 0x00;
 
     /* Total length of the packet to be sent to the Controller */
-    size = (HCI_CMD_IND + HCI_COMMAND_HDR_SIZE + EDL_WIP_QUERY_CHARGING_STATUS_LEN);
+    size = (HCI_CMD_IND + HCI_COMMAND_HDR_SIZE);
 
     ALOGD("%s: Sending HCI_VS_GET_ADDON_FEATURES_SUPPORT", __FUNCTION__);
-    ALOGD("HCI-CMD: \t0x%x \t0x%x \t0x%x \t0x%x \t0x%x", cmd[0], cmd[1], cmd[2], cmd[3], cmd[4]);
+    ALOGD("HCI-CMD: \t0x%x \t0x%x \t0x%x \t0x%x", cmd[0], cmd[1], cmd[2], cmd[3]);
     err = hci_send_vs_cmd(fd, (unsigned char *)cmd, rsp, size);
     if ( err != size) {
         ALOGE("Failed to send HCI_VS_GET_ADDON_FEATURES_SUPPORT command!");
