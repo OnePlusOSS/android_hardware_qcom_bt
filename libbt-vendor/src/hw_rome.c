@@ -1652,7 +1652,7 @@ static void enable_controller_log (int fd)
    unsigned char rsp[HCI_MAX_EVENT_SIZE];
    char value[PROPERTY_VALUE_MAX] = {'\0'};
 
-   property_get("enablebtsoclog", value, "false");
+   property_get("persist.service.bdroid.soclog", value, "false");
 
    // value at cmd[5]: 1 - to enable, 0 - to disable
    ret = (strcmp(value, "true") == 0) ? cmd[5] = 0x01: 0;
