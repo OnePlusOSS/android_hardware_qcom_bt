@@ -77,7 +77,8 @@ char *fw_su_info = NULL;
 unsigned short fw_su_offset =0;
 extern char enable_extldo;
 unsigned char wait_vsc_evt = TRUE;
-
+bool patch_dnld_pending = FALSE;
+int dnld_fd = -1;
 /******************************************************************************
 **  Extern variables
 ******************************************************************************/
@@ -86,7 +87,6 @@ extern uint8_t vnd_local_bd_addr[6];
 /*****************************************************************************
 **   Functions
 *****************************************************************************/
-
 int get_vs_hci_event(unsigned char *rsp)
 {
     int err = 0;
@@ -242,6 +242,21 @@ int get_vs_hci_event(unsigned char *rsp)
             {
                ALOGD("%s: WiPower feature supported!!", __FUNCTION__);
                property_set("persist.bluetooth.a4wp", "true");
+            }
+            break;
+        case HCI_VS_STRAY_EVT:
+            /* WAR to handle stray Power Apply EVT during patch download */
+            ALOGD("%s: Stray HCI VS EVENT", __FUNCTION__);
+            if (patch_dnld_pending && dnld_fd != -1)
+            {
+                unsigned char rsp[HCI_MAX_EVENT_SIZE];
+                memset(rsp, 0x00, HCI_MAX_EVENT_SIZE);
+                read_vs_hci_event(dnld_fd, rsp, HCI_MAX_EVENT_SIZE);
+            }
+            else
+            {
+                ALOGE("%s: Not a valid status!!!", __FUNCTION__);
+                err = -1;
             }
             break;
         default:
@@ -980,8 +995,10 @@ int rome_tlv_dnld_req(int fd, int tlv_size)
              }
         }
 
+        patch_dnld_pending = TRUE;
         if((err = rome_tlv_dnld_segment(fd, i, MAX_SIZE_PER_TLV_SEGMENT, wait_cc_evt )) < 0)
             goto error;
+        patch_dnld_pending = FALSE;
     }
 
     if ((rome_ver >= ROME_VER_1_1) && (rome_ver < ROME_VER_3_2) && (gTlv_type == TLV_TYPE_PATCH)) {
@@ -1003,10 +1020,11 @@ int rome_tlv_dnld_req(int fd, int tlv_size)
            wait_vsc_evt = remain_size ? TRUE: FALSE;
         }
     }
-
+    patch_dnld_pending = TRUE;
     if(remain_size) err =rome_tlv_dnld_segment(fd, i, remain_size, wait_cc_evt);
-
+    patch_dnld_pending = FALSE;
 error:
+    if(patch_dnld_pending) patch_dnld_pending = FALSE;
     return err;
 }
 
@@ -1735,7 +1753,7 @@ static int disable_internal_ldo(int fd)
 int rome_soc_init(int fd, char *bdaddr)
 {
     int err = -1, size = 0;
-
+    dnld_fd = fd;
     ALOGI(" %s ", __FUNCTION__);
 
     /* If wipower charging is going on in embedded mode then start hand off req */
@@ -1881,5 +1899,6 @@ download:
     }
 
 error:
+    dnld_fd = -1;
     return err;
 }
