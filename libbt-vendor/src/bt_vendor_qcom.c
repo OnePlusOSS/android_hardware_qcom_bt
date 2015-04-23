@@ -52,6 +52,7 @@ extern int rome_soc_init(int fd, char *bdaddr);
 extern int check_embedded_mode(int fd);
 extern int rome_get_addon_feature_list(int fd);
 extern int rome_ver;
+extern int enable_controller_log(int fd);
 /******************************************************************************
 **  Variables
 ******************************************************************************/
@@ -830,6 +831,7 @@ static int op(bt_vendor_opcode_t opcode, void *param)
                                              rome_get_addon_feature_list(fd);
                                          }
                                      }
+                                     enable_controller_log(fd);
                                      for (idx=0; idx < CH_MAX; idx++)
                                           (*fd_array)[idx] = fd;
                                           retval = 1;
