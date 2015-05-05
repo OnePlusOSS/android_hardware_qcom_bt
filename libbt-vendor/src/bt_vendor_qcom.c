@@ -1051,13 +1051,12 @@ static void ssr_cleanup(void) {
          * turns off*/
         op(BT_VND_OP_POWER_CTRL, &pwr_state);
 
+    } else {
+          //pronto case
+          op(BT_VND_OP_USERIAL_CLOSE, NULL);
     }
-
-#ifdef BT_SOC_TYPE_ROME
     /*Generally switching of chip should be enough*/
     op(BT_VND_OP_POWER_CTRL, &pwr_state);
-#endif
-    bt_vendor_cbacks = NULL;
 }
 
 
