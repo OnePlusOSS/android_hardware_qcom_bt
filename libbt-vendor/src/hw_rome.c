@@ -1700,7 +1700,7 @@ error:
 }
 
 
-void enable_controller_log (int fd)
+void enable_controller_log (int fd, unsigned char wait_for_evt)
 {
    int ret = 0;
    /* VS command to enable controller logging to the HOST. By default it is disabled */
@@ -1713,16 +1713,22 @@ void enable_controller_log (int fd)
    // value at cmd[5]: 1 - to enable, 0 - to disable
    ret = (strcmp(value, "true") == 0) ? cmd[5] = 0x01: 0;
    ALOGI("%s: %d", __func__, ret);
+   /* Ignore vsc evt if wait_for_evt is true */
+   if (wait_for_evt) wait_vsc_evt = FALSE;
 
    ret = hci_send_vs_cmd(fd, (unsigned char *)cmd, rsp, 6);
    if (ret != 6) {
        ALOGE("%s: command failed", __func__);
    }
-
+   /*Ignore hci_event if wait_for_evt is true*/
+   if (wait_for_evt)
+       goto end;
    ret = read_hci_event(fd, rsp, HCI_MAX_EVENT_SIZE);
    if (ret < 0) {
        ALOGE("%s: Failed to get CC for enable SoC log", __FUNCTION__);
    }
+end:
+   wait_vsc_evt = TRUE;
    return;
 }
 
@@ -1861,14 +1867,6 @@ download:
                 goto error;
             }
             ALOGI("%s: Download TLV file successfully ", __FUNCTION__);
-
-            /* This function sends a vendor specific command to enable/disable
-             * controller logs on need. Once the command is received to the SOC,
-             * It would start sending cotroller's print strings and LMP RX/TX
-             * packets to the HOST (over the UART) which will be logged in QXDM.
-             * The property 'enablebtsoclog' used to send this command on BT init
-             * sequence.
-             */
 
             /* Get SU FM label information */
             if((err = rome_get_build_info_req(fd)) <0){

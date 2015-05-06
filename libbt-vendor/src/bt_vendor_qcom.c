@@ -52,7 +52,7 @@ extern int rome_soc_init(int fd, char *bdaddr);
 extern int check_embedded_mode(int fd);
 extern int rome_get_addon_feature_list(int fd);
 extern int rome_ver;
-extern int enable_controller_log(int fd);
+extern int enable_controller_log(int fd, unsigned char req);
 /******************************************************************************
 **  Variables
 ******************************************************************************/
@@ -619,7 +619,7 @@ static int op(bt_vendor_opcode_t opcode, void *param)
     uint8_t local_bd_addr_from_prop[6];
     char* tok;
 #endif
-
+    bool skip_init = true;
     ALOGV("bt-vendor : op for %d", opcode);
 
     switch(opcode)
@@ -800,6 +800,7 @@ static int op(bt_vendor_opcode_t opcode, void *param)
                                         ALOGV("rome_soc_init is completed");
                                         property_set("wc_transport.soc_initialized", "1");
                                         userial_clock_operation(fd, USERIAL_OP_CLK_OFF);
+                                        skip_init = false;
                                         /*Close the UART port*/
                                         close(fd);
                                     }
@@ -831,7 +832,11 @@ static int op(bt_vendor_opcode_t opcode, void *param)
                                              rome_get_addon_feature_list(fd);
                                          }
                                      }
-                                     enable_controller_log(fd);
+                                     if (!skip_init) {
+                                         /*Skip if already sent*/
+                                         enable_controller_log(fd, is_ant_req);
+                                         skip_init = true;
+                                     }
                                      for (idx=0; idx < CH_MAX; idx++)
                                           (*fd_array)[idx] = fd;
                                           retval = 1;
