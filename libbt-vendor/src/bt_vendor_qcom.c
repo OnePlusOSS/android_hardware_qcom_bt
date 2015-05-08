@@ -1026,7 +1026,8 @@ static int op(bt_vendor_opcode_t opcode, void *param)
 
 static void ssr_cleanup(void) {
     int pwr_state=BT_VND_PWR_OFF;
-
+    int ret;
+    unsigned char trig_ssr = 0xEE;
     ALOGI("ssr_cleanup");
 
     if ((btSocType = get_bt_soc_type()) < 0) {
@@ -1036,6 +1037,11 @@ static void ssr_cleanup(void) {
 
     if (btSocType == BT_SOC_ROME) {
 #ifdef BT_SOC_TYPE_ROME
+        //Indicate to filter by sending
+        //special byte
+        trig_ssr = 0xEE;
+        ret = write (vnd_userial.fd, &trig_ssr, 1);
+        ALOGI("Trig_ssr is being sent to BT socket, retval(%d) :errno:  %s", ret, strerror(errno));
         /*Close both ANT channel*/
         op(BT_VND_OP_ANT_USERIAL_CLOSE, NULL);
 #endif
