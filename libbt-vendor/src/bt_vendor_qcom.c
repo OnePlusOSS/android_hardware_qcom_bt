@@ -662,8 +662,19 @@ static int op(bt_vendor_opcode_t opcode, void *param)
             {
                 // call hciattach to initalize the stack
                 if(bt_vendor_cbacks){
-                   ALOGI("Bluetooth Firmware and transport layer are initialized");
-                   bt_vendor_cbacks->fwcfg_cb(BT_VND_OP_RESULT_SUCCESS);
+                   if (btSocType ==  BT_SOC_ROME) {
+                       if (is_soc_initialized()) {
+                           ALOGI("Bluetooth FW and transport layer are initialized");
+                           bt_vendor_cbacks->fwcfg_cb(BT_VND_OP_RESULT_SUCCESS);
+                       } else {
+                           ALOGE("bt_vendor_cbacks is null or SoC not initialized");
+                           ALOGE("Error : hci, smd initialization Error");
+                           retval = -1;
+                       }
+                   } else {
+                       ALOGI("Bluetooth FW and transport layer are initialized");
+                       bt_vendor_cbacks->fwcfg_cb(BT_VND_OP_RESULT_SUCCESS);
+                   }
                 }
                 else{
                    ALOGE("bt_vendor_cbacks is null");
