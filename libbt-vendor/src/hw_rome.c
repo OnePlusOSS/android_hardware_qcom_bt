@@ -87,6 +87,35 @@ extern uint8_t vnd_local_bd_addr[6];
 /*****************************************************************************
 **   Functions
 *****************************************************************************/
+int do_write(int fd, unsigned char *buf,int len)
+{
+    int ret = 0;
+    int write_offset = 0;
+    int write_len = len;
+    do {
+        ret = write(fd,buf+write_offset,write_len);
+        if (ret < 0)
+        {
+            ALOGE("%s, write failed ret = %d err = %s",__func__,ret,strerror(errno));
+            return -1;
+        } else if (ret == 0) {
+            ALOGE("%s, write failed with ret 0 err = %s",__func__,strerror(errno));
+            return 0;
+        } else {
+            if (ret < write_len) {
+                ALOGD("%s, Write pending,do write ret = %d err = %s",__func__,ret,
+                       strerror(errno));
+                write_len = write_len - ret;
+                write_offset = ret;
+            } else {
+                ALOGV("Write successful");
+                break;
+            }
+        }
+    } while(1);
+    return len;
+}
+
 int get_vs_hci_event(unsigned char *rsp)
 {
     int err = 0;
@@ -338,7 +367,7 @@ int hci_send_wipower_vs_cmd(int fd, unsigned char *cmd, unsigned char *rsp, int 
     int err = 0;
 
     /* Send the HCI command packet to UART for transmission */
-    ret = write(fd, cmd, size);
+    ret = do_write(fd, cmd, size);
     if (ret != size) {
         ALOGE("%s: WP Send failed with ret value: %d", __FUNCTION__, ret);
         goto failed;
@@ -362,7 +391,7 @@ int hci_send_vs_cmd(int fd, unsigned char *cmd, unsigned char *rsp, int size)
     int ret = 0;
 
     /* Send the HCI command packet to UART for transmission */
-    ret = write(fd, cmd, size);
+    ret = do_write(fd, cmd, size);
     if (ret != size) {
         ALOGE("%s: Send failed with ret value: %d", __FUNCTION__, ret);
         goto failed;
@@ -761,7 +790,7 @@ int rome_rampatch_reset(int fd)
     size = (HCI_CMD_IND + HCI_COMMAND_HDR_SIZE + EDL_PATCH_CMD_LEN);
 
     /* Send HCI Command packet to Controller */
-    err = write(fd, cmd, size);
+    err = do_write(fd, cmd, size);
     if (err != size) {
         ALOGE("%s: Send failed with ret value: %d", __FUNCTION__, err);
         goto error;
@@ -1417,7 +1446,7 @@ int rome_set_baudrate_req(int fd)
     }
 
     /* Send the HCI command packet to UART for transmission */
-    err = write(fd, cmd, size);
+    err = do_write(fd, cmd, size);
     if (err != size) {
         ALOGE("%s: Send failed with ret value: %d", __FUNCTION__, err);
         goto error;
@@ -1483,7 +1512,7 @@ int rome_hci_reset_req(int fd)
 
     /* Send the HCI command packet to UART for transmission */
     ALOGI("%s: HCI CMD: 0x%x 0x%x 0x%x 0x%x\n", __FUNCTION__, cmd[0], cmd[1], cmd[2], cmd[3]);
-    err = write(fd, cmd, size);
+    err = do_write(fd, cmd, size);
     if (err != size) {
         ALOGE("%s: Send failed with ret value: %d", __FUNCTION__, err);
         goto error;
@@ -1531,7 +1560,7 @@ int rome_hci_reset(int fd)
 
     /* Total length of the packet to be sent to the Controller */
     size = (HCI_CMD_IND + HCI_COMMAND_HDR_SIZE);
-    err = write(fd, cmd, size);
+    err = do_write(fd, cmd, size);
     if (err != size) {
         ALOGE("%s: Send failed with ret value: %d", __FUNCTION__, err);
         err = -1;
@@ -1741,7 +1770,7 @@ static int disable_internal_ldo(int fd)
         unsigned char rsp[HCI_MAX_EVENT_SIZE];
 
         ALOGI(" %s ", __FUNCTION__);
-        ret = write(fd, cmd, 5);
+        ret = do_write(fd, cmd, 5);
         if (ret != 5) {
             ALOGE("%s: Send failed with ret value: %d", __FUNCTION__, ret);
             ret = -1;
