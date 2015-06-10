@@ -42,6 +42,12 @@
 
 #define WAIT_TIMEOUT 200000
 
+#ifdef PANIC_ON_SOC_CRASH
+#define BT_VND_FILTER_START "wc_transport.start_root"
+#else
+#define BT_VND_FILTER_START "wc_transport.start_hci"
+#endif
+
 /******************************************************************************
 **  Externs
 ******************************************************************************/
@@ -258,14 +264,14 @@ void stop_hci_filter() {
        char value[PROPERTY_VALUE_MAX] = {'\0'};
        ALOGV("%s: Entry ", __func__);
 
-       property_get("wc_transport.start_hci", value, "false");
+       property_get(BT_VND_FILTER_START, value, "false");
 
        if (strcmp(value, "false") == 0) {
            ALOGI("%s: hci_filter has been stopped already", __func__);
 //           return;
        }
 
-       property_set("wc_transport.start_hci", "false");
+       property_set(BT_VND_FILTER_START, "false");
        property_set("wc_transport.hci_filter_status", "0");
        ALOGV("%s: Exit ", __func__);
 }
@@ -275,8 +281,7 @@ void start_hci_filter() {
        int i, init_success = 0;
        char value[PROPERTY_VALUE_MAX] = {'\0'};
 
-
-       property_get("wc_transport.start_hci", value, false);
+       property_get(BT_VND_FILTER_START, value, false);
 
        if (strcmp(value, "true") == 0) {
            ALOGI("%s: hci_filter has been started already", __func__);
@@ -284,8 +289,10 @@ void start_hci_filter() {
        }
 
        property_set("wc_transport.hci_filter_status", "0");
+       property_set(BT_VND_FILTER_START, "true");
 
-       property_set("wc_transport.start_hci", "true");
+       ALOGV("%s: %s set to true ", __func__, BT_VND_FILTER_START );
+
        //sched_yield();
        for(i=0; i<45; i++) {
           property_get("wc_transport.hci_filter_status", value, "0");
