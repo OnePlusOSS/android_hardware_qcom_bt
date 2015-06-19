@@ -19,7 +19,7 @@
 
 #include "bt_vendor_lib.h"
 //#include "vnd_buildcfg.h"
-#include "utils.h"
+
 
 #ifndef FALSE
 #define FALSE  0
@@ -28,6 +28,10 @@
 #ifndef TRUE
 #define TRUE   (!FALSE)
 #endif
+
+#define STREAM_TO_UINT16(u16, p) {u16 = ((uint16_t)(*(p)) + (((uint16_t)(*((p) + 1))) << 8)); (p) += 2;}
+#define UINT16_TO_STREAM(p, u16) {*(p)++ = (uint8_t)(u16); *(p)++ = (uint8_t)((u16) >> 8);}
+#define UINT32_TO_STREAM(p, u32) {*(p)++ = (uint8_t)(u32); *(p)++ = (uint8_t)((u32) >> 8); *(p)++ = (uint8_t)((u32) >> 16); *(p)++ = (uint8_t)((u32) >> 24);}
 
 typedef enum {
     BT_SOC_DEFAULT = 0,
