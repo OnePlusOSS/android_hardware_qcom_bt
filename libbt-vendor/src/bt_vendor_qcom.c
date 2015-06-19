@@ -67,6 +67,13 @@ static int rfkill_id = -1;
 static char *rfkill_state = NULL;
 bool enable_extldo = FALSE;
 
+int userial_clock_operation(int fd, int cmd);
+int ath3k_init(int fd, int speed, int init_speed, char *bdaddr, struct termios *ti);
+int rome_soc_init(int fd, char *bdaddr);
+int userial_vendor_get_baud(void);
+int readTrpState();
+void lpm_set_ar3k(uint8_t pio, uint8_t action, uint8_t polarity);
+
 static const tUSERIAL_CFG userial_init_cfg =
 {
     (USERIAL_DATABITS_8 | USERIAL_PARITY_NONE | USERIAL_STOPBITS_1),
