@@ -39,7 +39,7 @@
 #include <linux/un.h>
 #include "bt_vendor_persist.h"
 #include "hw_rome.h"
-
+#include "bt_vendor_lib.h"
 #define WAIT_TIMEOUT 200000
 
 /******************************************************************************

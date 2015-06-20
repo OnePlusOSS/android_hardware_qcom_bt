@@ -39,7 +39,7 @@
 #include <stdlib.h>
 #include "bt_hci_bdroid.h"
 #include "bt_vendor_qcom.h"
-
+#include <string.h>
 #define MAX_CNT_RETRY 100
 
 int hw_config(int nState)
