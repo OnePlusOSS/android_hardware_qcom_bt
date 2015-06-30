@@ -52,19 +52,6 @@ extern int is_bt_ssr_hci;
 /*****************************************************************************
 **   Functions
 *****************************************************************************/
-int bt_hci_init_transport(int *pFd)
-{
-    int i = 0;
-    int fd;
-    for(i=0; i < NUM_OF_DEVS; i++){
-       fd = bt_hci_init_transport_id(i);
-       if(fd < 0 ){
-          return -1;
-       }
-       pFd[i] = fd;
-    }
-    return 0;
-}
 
 int bt_hci_init_transport_id (int chId )
 {
