@@ -268,8 +268,8 @@ void stop_hci_filter() {
        property_get("wc_transport.start_hci", value, "false");
 
        if (strcmp(value, "false") == 0) {
-           ALOGV("%s: hci_filter has been stopped already", __func__);
-           return;
+           ALOGI("%s: hci_filter has been stopped already", __func__);
+//           return;
        }
 
        property_set("wc_transport.start_hci", "false");
@@ -286,7 +286,7 @@ void start_hci_filter() {
        property_get("wc_transport.start_hci", value, false);
 
        if (strcmp(value, "true") == 0) {
-           ALOGV("%s: hci_filter has been started already", __func__);
+           ALOGI("%s: hci_filter has been started already", __func__);
            return;
        }
 
