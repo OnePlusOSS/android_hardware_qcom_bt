@@ -38,6 +38,10 @@ ifeq ($(BOARD_HAS_QCA_BT_ROME),true)
 LOCAL_CFLAGS += -DBT_SOC_TYPE_ROME
 endif
 
+ifneq (,$(filter userdebug eng,$(TARGET_BUILD_VARIANT)))
+LOCAL_CFLAGS += -DPANIC_ON_SOC_CRASH
+endif
+
 LOCAL_C_INCLUDES += \
         $(LOCAL_PATH)/include \
         external/bluetooth/bluedroid/hci/include \
