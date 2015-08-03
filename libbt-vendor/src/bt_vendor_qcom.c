@@ -1075,12 +1075,11 @@ static void ssr_cleanup(void) {
         op(BT_VND_OP_POWER_CTRL, &pwr_state);
 #endif
 
-    } else {
-          //pronto case
-          op(BT_VND_OP_USERIAL_CLOSE, NULL);
     }
+#ifdef BT_SOC_TYPE_ROME
     /*Generally switching of chip should be enough*/
     op(BT_VND_OP_POWER_CTRL, &pwr_state);
+#endif
 }
 
 
