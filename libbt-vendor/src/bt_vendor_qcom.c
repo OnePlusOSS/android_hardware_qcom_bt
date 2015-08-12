@@ -942,8 +942,9 @@ static int op(bt_vendor_opcode_t opcode, void *param)
                     bt_vendor_cbacks->lpm_cb(BT_VND_OP_RESULT_SUCCESS);
             }
             else {
+                // respond with failure as it's already handled by other mechanism
                 if (bt_vendor_cbacks)
-                    bt_vendor_cbacks->lpm_cb(BT_VND_OP_RESULT_SUCCESS); //dummy
+                    bt_vendor_cbacks->lpm_cb(BT_VND_OP_RESULT_FAIL);
             }
             break;
 
