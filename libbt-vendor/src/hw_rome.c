@@ -252,9 +252,14 @@ int get_vs_hci_event(unsigned char *rsp)
             }
             break;
        case EDL_WIP_QUERY_CHARGING_STATUS_EVT:
-            /*TODO: rsp code 00 mean no charging
-            this is going to change in FW soon*/
-            if (rsp[4] != EMBEDDED_MODE_CHECK)
+            /* Query charging command has below return values
+            0 - in embedded mode not charging
+            1 - in embedded mode and charging
+            2 - hadofff completed and in normal mode
+            3 - no wipower supported on mtp. so irrepective of charging
+            handoff command has to be sent if return values are 0 or 1.
+            These change include logic to enable generic BT turn on sequence.*/
+            if (rsp[4] < EMBEDDED_MODE_CHECK)
             {
                ALOGI("%s: WiPower Charging in Embedded Mode!!!", __FUNCTION__);
                wipower_handoff_ready = rsp[4];
