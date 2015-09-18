@@ -49,6 +49,7 @@
 #define BT_VND_FILTER_START "wc_transport.start_hci"
 #endif
 
+#define CMD_TIMEOUT  0x22
 /******************************************************************************
 **  Externs
 ******************************************************************************/
@@ -1045,7 +1046,7 @@ static int op(bt_vendor_opcode_t opcode, void *param)
     return retval;
 }
 
-static void ssr_cleanup(void) {
+static void ssr_cleanup(int reason) {
     int pwr_state=BT_VND_PWR_OFF;
     int ret;
     unsigned char trig_ssr = 0xEE;
@@ -1061,9 +1062,12 @@ static void ssr_cleanup(void) {
 #ifdef ENABLE_ANT
         //Indicate to filter by sending
         //special byte
-        trig_ssr = 0xEE;
-        ret = write (vnd_userial.fd, &trig_ssr, 1);
-        ALOGI("Trig_ssr is being sent to BT socket, retval(%d) :errno:  %s", ret, strerror(errno));
+        if (reason == CMD_TIMEOUT) {
+            trig_ssr = 0xEE;
+            ret = write (vnd_userial.fd, &trig_ssr, 1);
+            ALOGI("Trig_ssr is being sent to BT socket, retval(%d) :errno:  %s", ret, strerror(errno));
+            return;
+        }
         /*Close both ANT channel*/
         op(BT_VND_OP_ANT_USERIAL_CLOSE, NULL);
 #endif
