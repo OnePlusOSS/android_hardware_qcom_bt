@@ -42,11 +42,7 @@
 #define WAIT_TIMEOUT 200000
 #define BT_VND_OP_GET_LINESPEED 30
 
-#ifdef PANIC_ON_SOC_CRASH
-#define BT_VND_FILTER_START "wc_transport.start_root"
-#else
 #define BT_VND_FILTER_START "wc_transport.start_hci"
-#endif
 
 #define CMD_TIMEOUT  0x22
 
