@@ -50,6 +50,7 @@
 #endif
 
 #define CMD_TIMEOUT  0x22
+void wait_for_patch_download();
 /******************************************************************************
 **  Externs
 ******************************************************************************/
@@ -225,6 +226,7 @@ static int get_bt_soc_type()
 bool can_perform_action(char action) {
     bool can_perform = false;
     char ref_count[PROPERTY_VALUE_MAX];
+    char inProgress[PROPERTY_VALUE_MAX] = {'\0'};
     int value, ret;
 
     property_get("wc_transport.ref_count", ref_count, "0");
@@ -236,7 +238,8 @@ bool can_perform_action(char action) {
         ALOGV("%s: on : value is: %d", __func__, value);
         if(value == 1)
         {
-          if(is_soc_initialized() == true)
+          property_get("wc_transport.patch_dnld_inprog", inProgress, "0");
+          if((is_soc_initialized() == true) || (strcmp(inProgress,"1") == 0))
           {
             value++;
             ALOGV("%s: on : value is incremented to : %d", __func__, value);
@@ -762,8 +765,12 @@ static int op(bt_vendor_opcode_t opcode, void *param)
                         break;
                     case BT_SOC_ROME:
                         {
+                            wait_for_patch_download();
                             property_get("ro.bluetooth.emb_wp_mode", emb_wp_mode, false);
                             if (!is_soc_initialized()) {
+                                if (property_set("wc_transport.patch_dnld_inprog", "1") < 0) {
+                                    ALOGE("%s: Failed to set property", __FUNCTION__);
+                                }
                                 fd = userial_vendor_open((tUSERIAL_CFG *) &userial_init_cfg);
                                 if (fd < 0) {
                                     ALOGE("userial_vendor_open returns err");
@@ -835,6 +842,9 @@ static int op(bt_vendor_opcode_t opcode, void *param)
                                         close(fd);
                                     }
                                 }
+                            }
+                            if (property_set("wc_transport.patch_dnld_inprog", "0") < 0) {
+                                ALOGE("%s: Failed to set property", __FUNCTION__);
                             }
 
                             property_set("wc_transport.clean_up","0");
@@ -1051,6 +1061,9 @@ static void ssr_cleanup(int reason) {
     int ret;
     unsigned char trig_ssr = 0xEE;
     ALOGI("ssr_cleanup");
+    if (property_set("wc_transport.patch_dnld_inprog", "0") < 0) {
+        ALOGE("%s: Failed to set property", __FUNCTION__);
+    }
 
     if ((btSocType = get_bt_soc_type()) < 0) {
         ALOGE("%s: Failed to detect BT SOC Type", __FUNCTION__);
@@ -1097,6 +1110,24 @@ static void cleanup( void )
 #ifdef WIFI_BT_STATUS_SYNC
     isInit = 0;
 #endif /* WIFI_BT_STATUS_SYNC */
+}
+
+/* Check for one of the cients ANT/BT patch download is already in
+** progress if yes wait till complete
+*/
+void wait_for_patch_download() {
+    ALOGV("%s:", __FUNCTION__);
+    char inProgress[PROPERTY_VALUE_MAX] = {'\0'};
+    while (1) {
+        property_get("wc_transport.patch_dnld_inprog", inProgress, "0");
+        if(strcmp(inProgress,"1") == 0) {
+           usleep(50000);
+        }
+        else {
+           ALOGI("%s: patch download completed", __FUNCTION__);
+           break;
+        }
+    }
 }
 
 // Entry point of DLib
