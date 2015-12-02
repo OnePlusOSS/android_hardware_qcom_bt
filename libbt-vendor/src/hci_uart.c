@@ -49,6 +49,8 @@
 #define VNDUSERIALDBG(param, ...) {}
 #endif
 
+#define RESERVED(p)  if(p) ALOGI( "%s: reserved param", __FUNCTION__);
+
 /******************************************************************************
 **  Global variables
 ******************************************************************************/
@@ -391,7 +393,7 @@ int userial_vendor_get_baud(void)
 *******************************************************************************/
 int userial_vendor_ioctl(userial_vendor_ioctl_op_t op, int *p_data)
 {
-    int err;
+    int err = -1;
 
     switch(op)
     {
@@ -442,6 +444,8 @@ int userial_vendor_ioctl(userial_vendor_ioctl_op_t op, int *p_data)
 *******************************************************************************/
 int userial_set_port(char *p_conf_name, char *p_conf_value, int param)
 {
+    RESERVED(p_conf_name);
+    RESERVED(param);
     strlcpy(vnd_userial.port_name, p_conf_value, VND_PORT_NAME_MAXLEN);
 
     return 0;

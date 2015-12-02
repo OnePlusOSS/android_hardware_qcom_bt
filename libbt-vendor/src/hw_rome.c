@@ -60,6 +60,8 @@ extern "C" {
 }
 #endif
 
+#define RESERVED(p)  if(p) ALOGI( "%s: reserved param", __FUNCTION__);
+
 int read_vs_hci_event(int fd, unsigned char* buf, int size);
 
 /******************************************************************************
@@ -971,7 +973,7 @@ int rome_tlv_dnld_segment(int fd, int index, int seg_size, unsigned char wait_cc
 int rome_tlv_dnld_req(int fd, int tlv_size)
 {
     int  total_segment, remain_size, i, err = -1;
-    unsigned char wait_cc_evt;
+    unsigned char wait_cc_evt = TRUE;
 
     total_segment = tlv_size/MAX_SIZE_PER_TLV_SEGMENT;
     remain_size = (tlv_size < MAX_SIZE_PER_TLV_SEGMENT)?\
@@ -1687,7 +1689,7 @@ int check_embedded_mode(int fd) {
     return wipower_flag;
 }
 
-int rome_get_addon_feature_list(fd) {
+int rome_get_addon_feature_list(int fd) {
     int err = 0;
 
     /* Get addon features that are supported by FW */
@@ -1798,6 +1800,7 @@ int rome_soc_init(int fd, char *bdaddr)
     int err = -1, size = 0;
     dnld_fd = fd;
     ALOGI(" %s ", __FUNCTION__);
+    RESERVED(bdaddr);
 
     /* If wipower charging is going on in embedded mode then start hand off req */
     if (wipower_flag == WIPOWER_IN_EMBEDDED_MODE && wipower_handoff_ready != NON_WIPOWER_MODE)
