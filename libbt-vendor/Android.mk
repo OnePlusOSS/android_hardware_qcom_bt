@@ -30,16 +30,6 @@ LOCAL_SRC_FILES := \
         src/hw_ar3k.c \
         src/bt_vendor_persist.cpp
 
-ifeq ($(QCOM_BT_USE_SIBS),true)
-LOCAL_CFLAGS += -DQCOM_BT_SIBS_ENABLE
-endif
-
-ifeq ($(BOARD_HAS_QCA_BT_ROME),true)
-LOCAL_CFLAGS += -DBT_SOC_TYPE_ROME
-else ifeq ($(BOARD_HAS_QCA_BT_SOC), "cherokee")
-LOCAL_CFLAGS += -DBT_SOC_TYPE_CHEROKEE
-endif
-
 ifneq (,$(filter userdebug eng,$(TARGET_BUILD_VARIANT)))
 LOCAL_CFLAGS += -DPANIC_ON_SOC_CRASH
 endif

@@ -69,16 +69,15 @@ extern int chipset_ver;
 **  Variables
 ******************************************************************************/
 int pFd[2] = {0,};
-#if (BT_SOC_TYPE_ROME ||BT_SOC_TYPE_CHEROKEE)
 int ant_fd;
 int fm_fd;
-#endif
 bt_vendor_callbacks_t *bt_vendor_cbacks = NULL;
 uint8_t vnd_local_bd_addr[6]={0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 static int btSocType = BT_SOC_DEFAULT;
 static int rfkill_id = -1;
 static char *rfkill_state = NULL;
 bool enable_extldo = FALSE;
+uint8_t bt_baud_rate = USERIAL_BAUD_115200;
 
 int userial_clock_operation(int fd, int cmd);
 int ath3k_init(int fd, int speed, int init_speed, char *bdaddr, struct termios *ti);
@@ -420,16 +419,17 @@ static int bt_powerup(int en )
             return -1;
         }
     }
-#if (BT_SOC_TYPE_ROME ||BT_SOC_TYPE_CHEROKEE)
-    if(can_perform_action(on) == false) {
-        ALOGE("%s:can't perform action as it is being used by other clients", __func__);
+
+    if (btSocType == BT_SOC_ROME || btSocType == BT_SOC_CHEROKEE) {
+        if(can_perform_action(on) == false) {
+            ALOGE("%s:can't perform action as it is being used by other clients", __func__);
 #ifdef WIFI_BT_STATUS_SYNC
-        bt_semaphore_release(lock_fd);
-        bt_semaphore_destroy(lock_fd);
+            bt_semaphore_release(lock_fd);
+            bt_semaphore_destroy(lock_fd);
 #endif
-        goto done;
+            goto done;
+        }
     }
-#endif
     ret = asprintf(&enable_ldo_path, "/sys/class/rfkill/rfkill%d/device/extldo", rfkill_id);
     if( (ret < 0 ) || (enable_ldo_path == NULL) )
     {
@@ -464,13 +464,15 @@ static int bt_powerup(int en )
             return -1;
         }
     }
-#if (BT_SOC_TYPE_ROME ||BT_SOC_TYPE_CHEROKEE)
-    if(on == '0'){
-        ALOGE("Stopping HCI filter as part of CTRL:OFF");
-        stop_hci_filter();
-        property_set("wc_transport.soc_initialized", "0");
+
+    if (btSocType ==  BT_SOC_ROME || btSocType == BT_SOC_CHEROKEE) {
+        if(on == '0'){
+            ALOGE("Stopping HCI filter as part of CTRL:OFF");
+            stop_hci_filter();
+            property_set("wc_transport.soc_initialized", "0");
+        }
     }
-#endif
+
 #ifdef WIFI_BT_STATUS_SYNC
     /* query wifi status */
     property_get(WIFI_PROP_NAME, wifi_status, "");
@@ -557,6 +559,11 @@ static int init(const bt_vendor_callbacks_t* p_cb, unsigned char *local_bdaddr)
             ALOGE("Unknown btSocType: 0x%x", btSocType);
             break;
     }
+
+    if (btSocType == BT_SOC_ROME)
+         bt_baud_rate = USERIAL_BAUD_3M;
+    else if (btSocType == BT_SOC_CHEROKEE)
+         bt_baud_rate = USERIAL_BAUD_3_2M;
 
     /* store reference to user callbacks */
     bt_vendor_cbacks = (bt_vendor_callbacks_t *) p_cb;
@@ -753,14 +760,15 @@ static int op(bt_vendor_opcode_t opcode, void *param)
                     bt_vendor_cbacks->scocfg_cb(BT_VND_OP_RESULT_SUCCESS); //dummy
             }
             break;
-#if (BT_SOC_TYPE_ROME ||BT_SOC_TYPE_CHEROKEE)
+
+        if (btSocType == BT_SOC_ROME || btSocType == BT_SOC_CHEROKEE) {
 #ifdef ENABLE_ANT
         case BT_VND_OP_ANT_USERIAL_OPEN:
                 ALOGI("bt-vendor : BT_VND_OP_ANT_USERIAL_OPEN");
                 is_ant_req = true;
                 goto userial_open;
 #endif
-#endif
+        }
         case BT_VND_OP_FM_USERIAL_OPEN:
                 ALOGI("bt-vendor : BT_VND_OP_FM_USERIAL_OPEN");
                 is_fm_req = true;
@@ -930,13 +938,13 @@ userial_open:
                                     }
                                 }
 
-                                if (property_set("wc_transport.patch_dnld_inprog", "null") < 0) {
-                                    ALOGE("%s: Failed to set property", __FUNCTION__);
-                                }
+                            if (property_set("wc_transport.patch_dnld_inprog", "null") < 0) {
+                                ALOGE("%s: Failed to set property", __FUNCTION__);
+                            }
 
-                                property_set("wc_transport.clean_up","0");
-                                if (retval != -1) {
-#if (BT_SOC_TYPE_ROME ||BT_SOC_TYPE_CHEROKEE)
+                            property_set("wc_transport.clean_up","0");
+                            if (retval != -1) {
+                                 if (btSocType == BT_SOC_ROME || btSocType == BT_SOC_CHEROKEE) {
                                      start_hci_filter();
                                      if (is_ant_req) {
                                          ALOGV("connect to ant channel");
@@ -946,52 +954,52 @@ userial_open:
                                               < BT_SOC_RESERVED)) {
                                               ALOGI("%s: connect to fm channel", __func__);
                                               fm_fd = fd_filter = connect_to_local_socket("fm_sock");
-                                     }
-                                     else
-#endif
-                                     {
+                                     } else {
                                          ALOGV("connect to bt channel");
                                          vnd_userial.fd = fd_filter = connect_to_local_socket("bt_sock");
                                      }
-
-                                     if (fd_filter != -1) {
-                                         ALOGV("%s: received the socket fd: %d is_ant_req: %d is_fm_req :%d\n",
-                                             __func__, fd_filter, is_ant_req,is_fm_req);
-                                         if((strcmp(emb_wp_mode, "true") == 0) && !is_ant_req && !is_fm_req) {
-                                             if (chipset_ver >= ROME_VER_3_0) {
-                                                 /*  get rome supported feature request */
-                                                 ALOGE("%s: %x08 %0x", __FUNCTION__,chipset_ver, ROME_VER_3_0);
-                                                 rome_get_addon_feature_list(fd_filter);
-                                             }
-                                         }
-                                         if (!skip_init) {
-                                             /*Skip if already sent*/
-                                             enable_controller_log(fd_filter, (is_ant_req || is_fm_req));
-                                             skip_init = true;
-                                         }
-
-                                         for (idx=0; idx < CH_MAX; idx++) {
-                                             (*fd_array)[idx] = fd_filter;
-                                         }
-
-                                         retval = 1;
-                                     }
-                                     else {
-                                         if (is_ant_req)
-                                             ALOGE("Unable to connect to ANT Server Socket!!!");
-                                         else if (is_fm_req)
-                                             ALOGE("Unable to connect to FM Server Socket!!!");
-                                         else
-                                             ALOGE("Unable to connect to BT Server Socket!!!");
-                                         retval = -1;
-                                     }
+                                 } else {
+                                     ALOGV("connect to bt channel");
+                                     vnd_userial.fd = fd_filter = connect_to_local_socket("bt_sock");
                                  }
 
-                             if (fd >= 0) {
+                                 if (fd_filter != -1) {
+                                     ALOGV("%s: received the socket fd: %d is_ant_req: %d\n",
+                                                                 __func__, fd_filter, is_ant_req);
+                                     if((strcmp(emb_wp_mode, "true") == 0) && !is_ant_req) {
+                                         if (chipset_ver >= ROME_VER_3_0) {
+                                             /*  get rome supported feature request */
+                                             ALOGE("%s: %x08 %0x", __FUNCTION__,chipset_ver, ROME_VER_3_0);
+                                             rome_get_addon_feature_list(fd_filter);
+                                         }
+                                     }
+                                     if (!skip_init) {
+                                         /*Skip if already sent*/
+                                         enable_controller_log(fd_filter, is_ant_req);
+                                         skip_init = true;
+                                     }
+
+                                     for (idx=0; idx < CH_MAX; idx++) {
+                                         (*fd_array)[idx] = fd_filter;
+                                     }
+
+                                     retval = 1;
+                                 } else {
+                                     if (is_ant_req)
+                                         ALOGE("Unable to connect to ANT Server Socket!!!");
+                                     else if (is_fm_req)
+                                         ALOGE("Unable to connect to FM Server Socket!!!");
+                                     else
+                                         ALOGE("Unable to connect to BT Server Socket!!!");
+                                     retval = -1;
+                                 }
+                            }
+
+                            if (fd >= 0) {
                                  userial_clock_operation(fd, USERIAL_OP_CLK_OFF);
                                  /*Close the UART port*/
                                  close(fd);
-                             }
+                            }
                         }
                         break;
                     default:
@@ -1000,7 +1008,8 @@ userial_open:
                 }
             }
             break;
-#if (BT_SOC_TYPE_ROME ||BT_SOC_TYPE_CHEROKEE)
+
+        if (btSocType == BT_SOC_ROME || btSocType == BT_SOC_CHEROKEE) {
 #ifdef ENABLE_ANT
         case BT_VND_OP_ANT_USERIAL_CLOSE:
             {
@@ -1015,20 +1024,20 @@ userial_open:
                     pthread_mutex_unlock(&m_lock);
                 }
             }
-            break;
+                break;
 #endif
-        case BT_VND_OP_FM_USERIAL_CLOSE:
-            {
-                ALOGI("bt-vendor : BT_VND_OP_FM_USERIAL_CLOSE");
-                property_set("wc_transport.clean_up","1");
-                if (fm_fd != -1) {
-                    ALOGE("closing fm_fd");
-                    close(fm_fd);
-                    fm_fd = -1;
+            case BT_VND_OP_FM_USERIAL_CLOSE:
+                {
+                    ALOGI("bt-vendor : BT_VND_OP_FM_USERIAL_CLOSE");
+                    property_set("wc_transport.clean_up","1");
+                    if (fm_fd != -1) {
+                        ALOGE("closing fm_fd");
+                        close(fm_fd);
+                        fm_fd = -1;
+                    }
                 }
-            }
-            break;
-#endif
+                break;
+	}
         case BT_VND_OP_USERIAL_CLOSE:
             {
                 ALOGI("bt-vendor : BT_VND_OP_USERIAL_CLOSE btSocType: %d", btSocType);
@@ -1129,13 +1138,6 @@ userial_open:
                                 ALOGV("ASSERT: Waking up BT-Device");
                             else if (wake_assert == 1)
                                 ALOGV("DEASSERT: Allowing BT-Device to Sleep");
-
-#ifdef QCOM_BT_SIBS_ENABLE
-                            if(bt_vendor_cbacks){
-                                ALOGI("Invoking HCI H4 callback function");
-                               bt_vendor_cbacks->lpm_set_state_cb(wake_assert);
-                            }
-#endif
                         }
                         break;
                     case BT_SOC_AR3K:
@@ -1201,7 +1203,7 @@ userial_open:
                             " - transport driver not initialized!");
                         }else {
                             uint32_t baudrate;
-                            userial_to_tcio_baud(BT_BAUD_RATE, &baudrate);
+                            userial_to_tcio_baud(bt_baud_rate, &baudrate);
                             retval = userial_tcio_baud_to_int(baudrate);
                         }
                         break;
@@ -1229,9 +1231,7 @@ static void ssr_cleanup(int reason) {
         ALOGE("%s: Failed to detect BT SOC Type", __FUNCTION__);
         return;
     }
-
-    if (btSocType >= BT_SOC_ROME  && btSocType < BT_SOC_RESERVED ) {
-#if (BT_SOC_TYPE_ROME ||BT_SOC_TYPE_CHEROKEE)
+    if (btSocType == BT_SOC_ROME || btSocType == BT_SOC_CHEROKEE) {
 #ifdef ENABLE_ANT
         //Indicate to filter by sending
         //special byte
@@ -1250,21 +1250,19 @@ static void ssr_cleanup(int reason) {
         /*Close both ANT channel*/
         op(BT_VND_OP_ANT_USERIAL_CLOSE, NULL);
 #endif
-#endif
-        /*Close both BT and FM channel*/
-        op(BT_VND_OP_USERIAL_CLOSE, NULL);
-        op(BT_VND_OP_FM_USERIAL_CLOSE, NULL);
-        /*CTRL OFF twice to make sure hw
-         * turns off*/
-#ifdef ENABLE_ANT
-        op(BT_VND_OP_POWER_CTRL, &pwr_state);
-#endif
-
     }
-#if (BT_SOC_TYPE_ROME ||BT_SOC_TYPE_CHEROKEE)
-    /*Generally switching of chip should be enough*/
+    /*Close both BT and FM channel*/
+    op(BT_VND_OP_USERIAL_CLOSE, NULL);
+    op(BT_VND_OP_FM_USERIAL_CLOSE, NULL);
+    /*CTRL OFF twice to make sure hw
+     * turns off*/
+#ifdef ENABLE_ANT
     op(BT_VND_OP_POWER_CTRL, &pwr_state);
 #endif
+    if (btSocType == BT_SOC_ROME || btSocType == BT_SOC_CHEROKEE) {
+        /*Generally switching of chip should be enough*/
+        op(BT_VND_OP_POWER_CTRL, &pwr_state);
+    }
 }
 
 

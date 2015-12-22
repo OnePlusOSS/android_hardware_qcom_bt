@@ -44,15 +44,6 @@
 #define USERIAL_BAUD_4M         BAUDRATE_4000000
 #define USERIAL_BAUD_AUTO       BAUDRATE_AUTO
 
-/****   Default BT Baudrate ****/
-#ifdef BT_SOC_TYPE_ROME
-#define BT_BAUD_RATE   USERIAL_BAUD_3M
-#elif BT_SOC_TYPE_CHEROKEE
-#define BT_BAUD_RATE   USERIAL_BAUD_3_2M
-#else /* Other devices */
-#define BT_BAUD_RATE   USERIAL_BAUD_115200
-#endif
-
 /**** Data Format ****/
 /* Stop Bits */
 #define USERIAL_STOPBITS_1      1

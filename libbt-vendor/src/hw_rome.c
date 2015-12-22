@@ -89,6 +89,7 @@ int dnld_fd = -1;
 ******************************************************************************/
 extern uint8_t vnd_local_bd_addr[6];
 extern char enable_extldo;
+extern uint8_t bt_baud_rate;
 
 /*****************************************************************************
 **   Functions
@@ -1507,7 +1508,7 @@ int rome_set_baudrate_req(int fd)
     cmd[0]  = HCI_COMMAND_PKT;
     cmd_hdr->opcode = cmd_opcode_pack(HCI_VENDOR_CMD_OGF, EDL_SET_BAUDRATE_CMD_OCF);
     cmd_hdr->plen     = VSC_SET_BAUDRATE_REQ_LEN;
-    cmd[4]  = BT_BAUD_RATE;
+    cmd[4]  = bt_baud_rate;
 
     /* Total length of the packet to be sent to the Controller */
     size = (HCI_CMD_IND + HCI_COMMAND_HDR_SIZE + VSC_SET_BAUDRATE_REQ_LEN);
@@ -1527,7 +1528,7 @@ int rome_set_baudrate_req(int fd)
     }
 
     /* Change Local UART baudrate to high speed UART */
-    userial_vendor_set_baud(BT_BAUD_RATE);
+    userial_vendor_set_baud(bt_baud_rate);
 
     /* Check current Baudrate */
     userial_vendor_get_baud();
@@ -1596,7 +1597,7 @@ int rome_hci_reset_req(int fd)
     }
 
     /* Change Local UART baudrate to high speed UART */
-    userial_vendor_set_baud(BT_BAUD_RATE);
+    userial_vendor_set_baud(bt_baud_rate);
 
     /* Flow on after changing local uart baudrate */
     if ((err = userial_vendor_ioctl(USERIAL_OP_FLOW_ON , &flags)) < 0)
