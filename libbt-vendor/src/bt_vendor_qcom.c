@@ -331,7 +331,7 @@ static int bt_powerup(int en )
 {
     char rfkill_type[64], *enable_ldo_path = NULL;
     char type[16], enable_ldo[6];
-    int fd, size, i, ret, fd_ldo;
+    int fd = 0, size, i, ret, fd_ldo;
 
     char disable[PROPERTY_VALUE_MAX];
     char state;
@@ -435,14 +435,17 @@ static int bt_powerup(int en )
     ALOGE("Write %c to rfkill\n", on);
 
     /* Write value to control rfkill */
-    if ((size = write(fd, &on, 1)) < 0) {
-        ALOGE("write(%s) failed: %s (%d)",rfkill_state, strerror(errno),errno);
+    if(fd >= 0) {
+        if ((size = write(fd, &on, 1)) < 0) {
+            ALOGE("write(%s) failed: %s (%d)",rfkill_state, strerror(errno),errno);
 #ifdef WIFI_BT_STATUS_SYNC
-        bt_semaphore_release(lock_fd);
-        bt_semaphore_destroy(lock_fd);
+            bt_semaphore_release(lock_fd);
+            bt_semaphore_destroy(lock_fd);
 #endif
-        return -1;
+            return -1;
+        }
     }
+
 #ifdef BT_SOC_TYPE_ROME
     if(on == '0'){
         ALOGE("Stopping HCI filter as part of CTRL:OFF");
@@ -645,9 +648,10 @@ static int op(bt_vendor_opcode_t opcode, void *param)
     char* tok;
 #endif
     bool skip_init = true;
+    int  opcode_init = opcode;
     ALOGV("bt-vendor : op for %d", opcode);
 
-    switch(opcode)
+    switch(opcode_init)
     {
         case BT_VND_OP_POWER_CTRL:
             {
@@ -722,7 +726,6 @@ static int op(bt_vendor_opcode_t opcode, void *param)
                 is_ant_req = true;
                 //fall through
 #endif
-
 #endif
         case BT_VND_OP_USERIAL_OPEN:
             {
@@ -838,7 +841,7 @@ static int op(bt_vendor_opcode_t opcode, void *param)
                                        /* Since the BD address is configured in boot time We should not be here */
                                        ALOGI("Failed to read BD address. Use the one from bluedroid stack/ftm");
                                     }
-                                    if(rome_soc_init(fd,vnd_local_bd_addr)<0) {
+                                    if(rome_soc_init(fd, (char*)vnd_local_bd_addr)<0) {
                                         retval = -1;
                                         userial_clock_operation(fd, USERIAL_OP_CLK_OFF);
                                     } else {
@@ -1076,7 +1079,7 @@ static void ssr_cleanup(int reason) {
 
     if ((btSocType = get_bt_soc_type()) < 0) {
         ALOGE("%s: Failed to detect BT SOC Type", __FUNCTION__);
-        return -1;
+        return;
     }
 
     if (btSocType == BT_SOC_ROME) {
