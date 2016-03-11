@@ -36,6 +36,8 @@ endif
 
 ifeq ($(BOARD_HAS_QCA_BT_ROME),true)
 LOCAL_CFLAGS += -DBT_SOC_TYPE_ROME
+else ifeq ($(BOARD_HAS_QCA_BT_SOC), "cherokee")
+LOCAL_CFLAGS += -DBT_SOC_TYPE_CHEROKEE
 endif
 
 ifneq (,$(filter userdebug eng,$(TARGET_BUILD_VARIANT)))

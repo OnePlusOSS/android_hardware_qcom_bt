@@ -23,7 +23,6 @@
  *  Description:   vendor specific library implementation
  *
  ******************************************************************************/
-
 #define LOG_TAG "bt_vendor"
 #define BLUETOOTH_MAC_ADDR_BOOT_PROPERTY "ro.boot.btmacaddr"
 
@@ -58,18 +57,19 @@ static bool is_debug_force_special_bytes(void);
 **  Externs
 ******************************************************************************/
 extern int hw_config(int nState);
-
 extern int is_hw_ready();
 extern int rome_soc_init(int fd, char *bdaddr);
 extern int check_embedded_mode(int fd);
 extern int rome_get_addon_feature_list(int fd);
-extern int rome_ver;
 extern int enable_controller_log(int fd, unsigned char req);
+extern void cherokee_shutdown_vs_cmd(int fd);
+extern int chipset_ver;
+
 /******************************************************************************
 **  Variables
 ******************************************************************************/
 int pFd[2] = {0,};
-#ifdef BT_SOC_TYPE_ROME
+#if (BT_SOC_TYPE_ROME ||BT_SOC_TYPE_CHEROKEE)
 int ant_fd;
 #endif
 bt_vendor_callbacks_t *bt_vendor_cbacks = NULL;
@@ -88,9 +88,22 @@ void lpm_set_ar3k(uint8_t pio, uint8_t action, uint8_t polarity);
 
 static const tUSERIAL_CFG userial_init_cfg =
 {
-    (USERIAL_DATABITS_8 | USERIAL_PARITY_NONE | USERIAL_STOPBITS_1),
-    USERIAL_BAUD_115200
+    (USERIAL_DATABITS_8 | USERIAL_PARITY_NONE | USERIAL_STOPBITS_1 |USERIAL_CTSRTS),
+    USERIAL_BAUD_115200 /* bit = 8.6 us */
 };
+
+static tUSERIAL_CFG bt_reset_cfg =
+{
+    (USERIAL_DATABITS_8 | USERIAL_PARITY_NONE | USERIAL_STOPBITS_1),
+    USERIAL_BAUD_115200 /* bit = 8.6 us*/
+};
+
+static tUSERIAL_CFG bt_shutdown_cfg =
+{
+    (USERIAL_DATABITS_8 | USERIAL_PARITY_NONE | USERIAL_STOPBITS_1),
+    USERIAL_BAUD_2400 /* bit = 0.417 ms */
+};
+
 
 #if (HW_NEED_END_WITH_HCI_RESET == TRUE)
 void hw_epilog_process(void);
@@ -115,7 +128,6 @@ bool is_soc_initialized(void);
 /******************************************************************************
 **  Local type definitions
 ******************************************************************************/
-
 
 /******************************************************************************
 **  Functions
@@ -209,6 +221,9 @@ static int get_bt_soc_type()
         ALOGI("qcom.bluetooth.soc set to %s\n", bt_soc_type);
         if (!strncasecmp(bt_soc_type, "rome", sizeof("rome"))) {
             return BT_SOC_ROME;
+        }
+        else if (!strncasecmp(bt_soc_type, "cherokee", sizeof("cherokee"))) {
+            return BT_SOC_CHEROKEE;
         }
         else if (!strncasecmp(bt_soc_type, "ath3k", sizeof("ath3k"))) {
             return BT_SOC_AR3K;
@@ -402,7 +417,7 @@ static int bt_powerup(int en )
             return -1;
         }
     }
-#ifdef BT_SOC_TYPE_ROME
+#if (BT_SOC_TYPE_ROME ||BT_SOC_TYPE_CHEROKEE)
     if(can_perform_action(on) == false) {
         ALOGE("%s:can't perform action as it is being used by other clients", __func__);
 #ifdef WIFI_BT_STATUS_SYNC
@@ -446,8 +461,7 @@ static int bt_powerup(int en )
             return -1;
         }
     }
-
-#ifdef BT_SOC_TYPE_ROME
+#if (BT_SOC_TYPE_ROME ||BT_SOC_TYPE_CHEROKEE)
     if(on == '0'){
         ALOGE("Stopping HCI filter as part of CTRL:OFF");
         stop_hci_filter();
@@ -525,6 +539,7 @@ static int init(const bt_vendor_callbacks_t* p_cb, unsigned char *local_bdaddr)
 
     switch(btSocType)
     {
+        case BT_SOC_CHEROKEE:
         case BT_SOC_ROME:
         case BT_SOC_AR3K:
             ALOGI("bt-vendor : Initializing UART transport layer");
@@ -630,7 +645,6 @@ bool is_soc_initialized() {
     return init;
 }
 
-
 /** Requested operations */
 static int op(bt_vendor_opcode_t opcode, void *param)
 {
@@ -678,6 +692,7 @@ static int op(bt_vendor_opcode_t opcode, void *param)
                             retval = -1;
                         }
                         break;
+                    case BT_SOC_CHEROKEE:
                     case BT_SOC_ROME:
                     case BT_SOC_AR3K:
                         /* BT Chipset Power Control through Device Tree Node */
@@ -692,7 +707,7 @@ static int op(bt_vendor_opcode_t opcode, void *param)
             {
                 // call hciattach to initalize the stack
                 if(bt_vendor_cbacks){
-                   if (btSocType ==  BT_SOC_ROME) {
+                   if (btSocType >=  BT_SOC_ROME && btSocType < BT_SOC_RESERVED  ) {
                        if (is_soc_initialized()) {
                            ALOGI("Bluetooth FW and transport layer are initialized");
                            bt_vendor_cbacks->fwcfg_cb(BT_VND_OP_RESULT_SUCCESS);
@@ -720,7 +735,7 @@ static int op(bt_vendor_opcode_t opcode, void *param)
                     bt_vendor_cbacks->scocfg_cb(BT_VND_OP_RESULT_SUCCESS); //dummy
             }
             break;
-#ifdef BT_SOC_TYPE_ROME
+#if (BT_SOC_TYPE_ROME ||BT_SOC_TYPE_CHEROKEE)
 #ifdef ENABLE_ANT
         case BT_VND_OP_ANT_USERIAL_OPEN:
                 ALOGI("bt-vendor : BT_VND_OP_ANT_USERIAL_OPEN");
@@ -773,6 +788,42 @@ static int op(bt_vendor_opcode_t opcode, void *param)
                                 retval = -1;
                         }
                         break;
+                    case BT_SOC_CHEROKEE:
+                        {
+                            /* Cherokee need to wake up first through UART Tx line */
+                            int len;
+                            char reset_val = 0xFC;
+                            fd = userial_vendor_open((tUSERIAL_CFG *) &bt_reset_cfg);
+                            if (fd < 0) {
+                                ALOGE("userial_vendor_open returns err");
+                                retval = -1;
+                            } else {
+                                /* Clock on */
+                                userial_clock_operation(fd, USERIAL_OP_CLK_ON);
+                                ALOGD("userial clock on");
+
+                                /* Give some delay before clock and uart driver is ramping up and ready */
+                                usleep(200); /* 200 us delay */
+
+                                /* UART TxD control as BT Reset*/
+                                /* 0xFC = 3 bits = 8.6 us *3 =  25.8us */
+                                len = write(fd, &reset_val, 1);
+                                if (len != 1 ) {
+                                    ALOGE("%s: Send failed with ret value: %d", __FUNCTION__, len);
+                                    retval = -1;
+                                    break;
+                                }
+
+                                /* Clock off */
+                                userial_clock_operation(fd, USERIAL_OP_CLK_ON);
+
+                                /* Close uart port for the reset handler */
+                                userial_vendor_close();
+
+                                /* For Cherokee, it need to wait for 100ms */
+                                usleep(100*1000);
+                            }
+                        }
                     case BT_SOC_ROME:
                         {
                             wait_for_patch_download(is_ant_req);
@@ -787,20 +838,22 @@ static int op(bt_vendor_opcode_t opcode, void *param)
                                 if (fd < 0) {
                                     ALOGE("userial_vendor_open returns err");
                                     retval = -1;
-                                } else {
-                                    /* Clock on */
-                                    userial_clock_operation(fd, USERIAL_OP_CLK_ON);
-                                    ALOGD("userial clock on");
-                                    if(strcmp(emb_wp_mode, "true") == 0) {
-                                        property_get("ro.bluetooth.wipower", wipower_status, false);
-                                        if(strcmp(wipower_status, "true") == 0) {
-                                            check_embedded_mode(fd);
-                                        } else {
-                                            ALOGI("Wipower not enabled");
-                                        }
+                                    break;
+                                }
+
+                                /* Clock on */
+                                userial_clock_operation(fd, USERIAL_OP_CLK_ON);
+
+                                if(strcmp(emb_wp_mode, "true") == 0) {
+                                    property_get("ro.bluetooth.wipower", wipower_status, false);
+                                    if(strcmp(wipower_status, "true") == 0) {
+                                        check_embedded_mode(fd);
+                                    } else {
+                                        ALOGI("Wipower not enabled");
                                     }
-                                    ALOGV("rome_soc_init is started");
-                                    property_set("wc_transport.soc_initialized", "0");
+                                }
+                                ALOGV("rome_soc_init is started");
+                                property_set("wc_transport.soc_initialized", "0");
 #ifdef READ_BT_ADDR_FROM_PROP
                                     /*Give priority to read BD address from boot property*/
                                     ignore_boot_prop = FALSE;
@@ -850,52 +903,56 @@ static int op(bt_vendor_opcode_t opcode, void *param)
                                         skip_init = false;
                                     }
                                 }
-                            }
-                            if (property_set("wc_transport.patch_dnld_inprog", "null") < 0) {
-                                ALOGE("%s: Failed to set property", __FUNCTION__);
-                            }
 
-                            property_set("wc_transport.clean_up","0");
-                            if (retval != -1) {
-#ifdef BT_SOC_TYPE_ROME
-                                 start_hci_filter();
-                                 if (is_ant_req) {
-                                     ALOGV("connect to ant channel");
-                                     ant_fd = fd_filter = connect_to_local_socket("ant_sock");
-                                 }
-                                 else
+                                if (property_set("wc_transport.patch_dnld_inprog", "null") < 0) {
+                                    ALOGE("%s: Failed to set property", __FUNCTION__);
+                                }
+
+                                property_set("wc_transport.clean_up","0");
+                                if (retval != -1) {
+#if (BT_SOC_TYPE_ROME ||BT_SOC_TYPE_CHEROKEE)
+                                     start_hci_filter();
+                                     if (is_ant_req) {
+                                         ALOGV("connect to ant channel");
+                                         ant_fd = fd_filter = connect_to_local_socket("ant_sock");
+                                     }
+                                     else
 #endif
-                                 {
-                                     ALOGV("connect to bt channel");
-                                     vnd_userial.fd = fd_filter = connect_to_local_socket("bt_sock");
-                                 }
+                                     {
+                                         ALOGV("connect to bt channel");
+                                         vnd_userial.fd = fd_filter = connect_to_local_socket("bt_sock");
+                                     }
 
-                                 if (fd_filter != -1) {
-                                     ALOGV("%s: received the socket fd: %d is_ant_req: %d\n",
-                                                                 __func__, fd_filter, is_ant_req);
-                                     if((strcmp(emb_wp_mode, "true") == 0) && !is_ant_req) {
-                                         if (rome_ver >= ROME_VER_3_0) {
-                                             /*  get rome supported feature request */
-                                             ALOGE("%s: %x08 %0x", __FUNCTION__,rome_ver, ROME_VER_3_0);
-                                             rome_get_addon_feature_list(fd_filter);
+                                     if (fd_filter != -1) {
+                                         ALOGV("%s: received the socket fd: %d is_ant_req: %d\n",
+                                                                     __func__, fd_filter, is_ant_req);
+                                         if((strcmp(emb_wp_mode, "true") == 0) && !is_ant_req) {
+                                             if (chipset_ver >= ROME_VER_3_0) {
+                                                 /*  get rome supported feature request */
+                                                 ALOGE("%s: %x08 %0x", __FUNCTION__,chipset_ver, ROME_VER_3_0);
+                                                 rome_get_addon_feature_list(fd_filter);
+                                             }
                                          }
-                                     }
-                                     if (!skip_init) {
-                                         /*Skip if already sent*/
-                                         enable_controller_log(fd_filter, is_ant_req);
-                                         skip_init = true;
-                                     }
+                                         if (!skip_init) {
+                                             /*Skip if already sent*/
+                                             enable_controller_log(fd_filter, is_ant_req);
+                                             skip_init = true;
+                                         }
 
-                                     for (idx=0; idx < CH_MAX; idx++) {
-                                         (*fd_array)[idx] = fd_filter;
-                                     }
+                                         for (idx=0; idx < CH_MAX; idx++) {
+                                             (*fd_array)[idx] = fd_filter;
+                                         }
 
-                                     retval = 1;
+                                         retval = 1;
+                                     }
+                                     else {
+                                         if (is_ant_req)
+                                             ALOGE("Unable to connect to ANT Server Socket!!!");
+                                         else
+                                             ALOGE("Unable to connect to BT Server Socket!!!");
+                                         retval = -1;
+                                     }
                                  }
-                                 else {
-                                     retval = -1;
-                                 }
-                             }
 
                              if (fd >= 0) {
                                  userial_clock_operation(fd, USERIAL_OP_CLK_OFF);
@@ -910,7 +967,7 @@ static int op(bt_vendor_opcode_t opcode, void *param)
                 }
             }
             break;
-#ifdef BT_SOC_TYPE_ROME
+#if (BT_SOC_TYPE_ROME ||BT_SOC_TYPE_CHEROKEE)
 #ifdef ENABLE_ANT
         case BT_VND_OP_ANT_USERIAL_CLOSE:
             {
@@ -931,14 +988,47 @@ static int op(bt_vendor_opcode_t opcode, void *param)
                 switch(btSocType)
                 {
                     case BT_SOC_DEFAULT:
-                         bt_hci_deinit_transport(pFd);
-                         break;
+                        bt_hci_deinit_transport(pFd);
+                        break;
+                    case BT_SOC_CHEROKEE:
+                    {
+                        int fd, len;
+                        char shutdown_val = 0xE0;
 
-                     case BT_SOC_ROME:
-                     case BT_SOC_AR3K:
+                        /* Cherokee 1.0 or FPGA should send VSC to shutdown chipset*/
+                        if((chipset_ver == CHEROKEE_VER_1_0) || (chipset_ver == CHEROKEE_VER_0_0)
+                            || (chipset_ver ==CHEROKEE_VER_0_1)) {
+                            cherokee_shutdown_vs_cmd(vnd_userial.fd);
+                        }
+                        userial_vendor_close();
+
+                        /* Baudrate = 2400 bps */
+                        fd = userial_vendor_open((tUSERIAL_CFG *) &bt_shutdown_cfg);
+                        if (fd < 0) {
+                            ALOGE("userial_vendor_open returns err");
+                            retval = -1;
+                            break;
+                        }
+
+                        /* Give some delay before clock and uart driver is ramping up and ready */
+                        usleep(200); /* 200 us delay */
+
+                        /* UART TxD control as BT Reset*/
+                        /* 0xF0 = 4 '0' single bit = 0.416 ms * 4 + start bit 0.416ms ~= 2.08 ms */
+                        len = write(fd, &shutdown_val, 1);
+                        if (len != 1) {
+                            ALOGE("%s: Send failed with ret value: %d", __FUNCTION__, len);
+                            retval = -1;
+                            break;
+                        }
+                    }
+                    case BT_SOC_ROME:
+                    case BT_SOC_AR3K:
+                    {
                         property_set("wc_transport.clean_up","1");
                         userial_vendor_close();
                         break;
+                    }
                     default:
                         ALOGE("Unknown btSocType: 0x%x", btSocType);
                         break;
@@ -978,6 +1068,7 @@ static int op(bt_vendor_opcode_t opcode, void *param)
             {
                 switch(btSocType)
                 {
+                    case BT_SOC_CHEROKEE:
                     case BT_SOC_ROME:
                         {
                             uint8_t *state = (uint8_t *) param;
@@ -1022,6 +1113,7 @@ static int op(bt_vendor_opcode_t opcode, void *param)
 #else
                 switch(btSocType)
                 {
+                  case BT_SOC_CHEROKEE:
                   case BT_SOC_ROME:
                        {
                            char value[PROPERTY_VALUE_MAX] = {'\0'};
@@ -1052,12 +1144,15 @@ static int op(bt_vendor_opcode_t opcode, void *param)
                 retval = -1;
                 switch(btSocType)
                 {
+                    case BT_SOC_CHEROKEE:
                     case BT_SOC_ROME:
                         if(!is_soc_initialized()) {
                             ALOGE("BT_VND_OP_GET_LINESPEED: error"
                             " - transport driver not initialized!");
                         }else {
-                            retval = 3000000;
+                            uint32_t baudrate;
+                            userial_to_tcio_baud(BT_BAUD_RATE, &baudrate);
+                            retval = userial_tcio_baud_to_int(baudrate);
                         }
                         break;
                     default:
@@ -1085,8 +1180,8 @@ static void ssr_cleanup(int reason) {
         return;
     }
 
-    if (btSocType == BT_SOC_ROME) {
-#ifdef BT_SOC_TYPE_ROME
+    if (btSocType >= BT_SOC_ROME  && btSocType < BT_SOC_RESERVED ) {
+#if (BT_SOC_TYPE_ROME ||BT_SOC_TYPE_CHEROKEE)
 #ifdef ENABLE_ANT
         //Indicate to filter by sending
         //special byte
@@ -1115,7 +1210,7 @@ static void ssr_cleanup(int reason) {
 #endif
 
     }
-#ifdef BT_SOC_TYPE_ROME
+#if (BT_SOC_TYPE_ROME ||BT_SOC_TYPE_CHEROKEE)
     /*Generally switching of chip should be enough*/
     op(BT_VND_OP_POWER_CTRL, &pwr_state);
 #endif

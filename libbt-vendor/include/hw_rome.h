@@ -18,6 +18,7 @@
 #ifndef HW_ROME_H
 #define HW_ROME_H
 
+
 /******************************************************************************
 **  Constants & Macros
 ******************************************************************************/
@@ -127,7 +128,9 @@
 
 /* TLV_TYPE */
 #define TLV_TYPE_PATCH                  (1)
-#define TLV_TYPE_NVM                      (2)
+#define TLV_TYPE_BT_NVM                (2)
+#define TLV_TYPE_FM_NVM               (3)
+#define TLV_TYPE_BT_FM_NVM        (4)
 
 /* NVM */
 #define MAX_TAG_CMD                 30
@@ -150,21 +153,28 @@
 #define EXTRACT_BYTE(val, pos)      (char) (((val) >> (8 * (pos))) & 0xFF)
 #define CALC_SEG_SIZE(len, max)   ((plen) % (max))?((plen/max)+1) : ((plen) / (max))
 
-#define ROME_FW_PATH        "/system/etc/firmware/rampatch.img"
-#define ROME_RAMPATCH_TLV_PATH      "/system/etc/firmware/rampatch_tlv.img"
-#define ROME_NVM_TLV_PATH         "/system/etc/firmware/nvm_tlv.bin"
-#define ROME_RAMPATCH_TLV_1_0_3_PATH    "/system/etc/firmware/rampatch_tlv_1.3.tlv"
-#define ROME_NVM_TLV_1_0_3_PATH         "/system/etc/firmware/nvm_tlv_1.3.bin"
-#define ROME_RAMPATCH_TLV_2_0_1_PATH    "/system/etc/firmware/rampatch_tlv_2.1.tlv"
-#define ROME_NVM_TLV_2_0_1_PATH         "/system/etc/firmware/nvm_tlv_2.1.bin"
-#define ROME_RAMPATCH_TLV_3_0_0_PATH    "/bt_firmware/image/btfw30.tlv"
-#define ROME_NVM_TLV_3_0_0_PATH         "/bt_firmware/image/btnv30.bin"
-#define ROME_RAMPATCH_TLV_3_0_2_PATH    "/bt_firmware/image/btfw32.tlv"
-#define ROME_NVM_TLV_3_0_2_PATH         "/bt_firmware/image/btnv32.bin"
-//#define ROME_RAMPATCH_TLV_3_0_0_PATH    "/system/etc/firmware/rampatch_tlv_3.0.tlv"
-//#define ROME_NVM_TLV_3_0_0_PATH         "/system/etc/firmware/nvm_tlv_3.0.bin"
-//#define ROME_RAMPATCH_TLV_3_0_2_PATH    "/system/etc/firmware/rampatch_tlv_3.2.tlv"
-//#define ROME_NVM_TLV_3_0_2_PATH         "/system/etc/firmware/nvm_tlv_3.2.bin"
+#define ROME_FW_PATH                      "/system/etc/firmware/rampatch.img"
+#define ROME_RAMPATCH_TLV_PATH            "/system/etc/firmware/rampatch_tlv.img"
+#define ROME_NVM_TLV_PATH                 "/system/etc/firmware/nvm_tlv.bin"
+#define ROME_RAMPATCH_TLV_1_0_3_PATH      "/system/etc/firmware/rampatch_tlv_1.3.tlv"
+#define ROME_NVM_TLV_1_0_3_PATH           "/system/etc/firmware/nvm_tlv_1.3.bin"
+#define ROME_RAMPATCH_TLV_2_0_1_PATH      "/system/etc/firmware/rampatch_tlv_2.1.tlv"
+#define ROME_NVM_TLV_2_0_1_PATH           "/system/etc/firmware/nvm_tlv_2.1.bin"
+#define ROME_RAMPATCH_TLV_3_0_0_PATH      "/bt_firmware/image/btfw30.tlv"
+#define ROME_NVM_TLV_3_0_0_PATH           "/bt_firmware/image/btnv30.bin"
+#define ROME_RAMPATCH_TLV_3_0_2_PATH      "/bt_firmware/image/btfw32.tlv"
+#define ROME_NVM_TLV_3_0_2_PATH           "/bt_firmware/image/btnv32.bin"
+
+#define CHEROKEE_RAMPATCH_TLV_1_0_PATH    "/bt_firmware/image/crbtfw10.tlv"
+#define CHEROKEE_NVM_TLV_1_0_PATH         "/bt_firmware/image/crnv10.bin"
+#define CHEROKEE_RAMPATCH_TLV_1_1_PATH    "/bt_firmware/image/crbtfw11.tlv"
+#define CHEROKEE_NVM_TLV_1_1_PATH         "/bt_firmware/image/crnv11.bin"
+#define CHEROKEE_RAMPATCH_TLV_2_0_PATH    "/bt_firmware/image/crbtfw20.tlv"
+#define CHEROKEE_NVM_TLV_2_0_PATH         "/bt_firmware/image/crnv20.bin"
+#define CHEROKEE_RAMPATCH_TLV_2_1_PATH    "/bt_firmware/image/crbtfw21.tlv"
+#define CHEROKEE_NVM_TLV_2_1_PATH         "/bt_firmware/image/crnv21.bin"
+#define CHEROKEE_RAMPATCH_TLV_3_0_PATH    "/bt_firmware/image/crbtfw30.tlv"
+#define CHEROKEE_NVM_TLV_3_0_PATH         "/bt_firmware/image/crnv30.bin"
 
 #define ROME_3_1_FW_SU  "bprm.cnss.3.1"
 #define ROME_3_2_FW_SU  "btfwp.cnss.3.2"
@@ -236,51 +246,94 @@ typedef struct {
 
 
 enum{
+    /* ROME Supported Baud rate */
     BAUDRATE_115200     = 0x00,
-    BAUDRATE_57600       = 0x01,
-    BAUDRATE_38400       = 0x02,
-    BAUDRATE_19200       = 0x03,
-    BAUDRATE_9600         = 0x04,
+    BAUDRATE_57600      = 0x01,
+    BAUDRATE_38400      = 0x02,
+    BAUDRATE_19200      = 0x03,
+    BAUDRATE_9600       = 0x04,
     BAUDRATE_230400     = 0x05,
     BAUDRATE_250000     = 0x06,
     BAUDRATE_460800     = 0x07,
     BAUDRATE_500000     = 0x08,
     BAUDRATE_720000     = 0x09,
     BAUDRATE_921600     = 0x0A,
-    BAUDRATE_1000000   = 0x0B,
-    BAUDRATE_1250000   = 0x0C,
-    BAUDRATE_2000000   = 0x0D,
-    BAUDRATE_3000000   = 0x0E,
-    BAUDRATE_4000000   = 0x0F,
-    BAUDRATE_1600000   = 0x10,
-    BAUDRATE_3200000   = 0x11,
-    BAUDRATE_3500000   = 0x12,
-    BAUDRATE_AUTO        = 0xFE,
-    BAUDRATE_Reserved  = 0xFF
+    BAUDRATE_1000000    = 0x0B,
+    BAUDRATE_1250000    = 0x0C,
+    BAUDRATE_2000000    = 0x0D,
+    BAUDRATE_3000000    = 0x0E,
+    BAUDRATE_4000000    = 0x0F,
+    BAUDRATE_1600000    = 0x10,
+    BAUDRATE_3200000    = 0x11,
+    BAUDRATE_3500000    = 0x12,
+
+    /* MSM Supported Baud rate */
+    BAUDRATE_300        = 0x13,
+    BAUDRATE_600        = 0x14,
+    BAUDRATE_1200       = 0x15,
+    BAUDRATE_2400       = 0x16,
+    BAUDRATE_1500000    = 0x17,
+
+    BAUDRATE_AUTO       = 0xFE,
+    BAUDRATE_Reserved   = 0xFF
 };
 
 enum{
-    ROME_PATCH_VER_0100 = 0x0100,
-    ROME_PATCH_VER_0101 = 0x0101,
-    ROME_PATCH_VER_0200 = 0x0200,
-    ROME_PATCH_VER_0300 = 0x0300,
-    ROME_PATCH_VER_0302 = 0x0302
+    PROD_ID_ROME = 0x08,
+    PROD_ID_CHEROKEE = 0x0A
+};
+
+enum{
+    ROME_BUILD_VER_0100 = 0x0100,
+    ROME_BUILD_VER_0101 = 0x0101,
+    ROME_BUILD_VER_0200 = 0x0200,
+    ROME_BUILD_VER_0300 = 0x0300,
+    ROME_BUILD_VER_0302 = 0x0302,
+
  };
 
 enum{
-    ROME_SOC_ID_00 = 0x00000000,
-    ROME_SOC_ID_11 = 0x00000011,
-    ROME_SOC_ID_22 = 0x00000022,
-    ROME_SOC_ID_44 = 0x00000044
+    SOC_ID_00 = 0x00000000,
+    SOC_ID_11 = 0x00000011,
+    SOC_ID_22 = 0x00000022,
+    SOC_ID_44 = 0x00000044
 };
 
 enum{
     ROME_VER_UNKNOWN = 0,
-    ROME_VER_1_0 = ((ROME_PATCH_VER_0100 << 16 ) | ROME_SOC_ID_00 ),
-    ROME_VER_1_1 = ((ROME_PATCH_VER_0101 << 16 ) | ROME_SOC_ID_00 ),
-    ROME_VER_1_3 = ((ROME_PATCH_VER_0200 << 16 ) | ROME_SOC_ID_00 ),
-    ROME_VER_2_1 = ((ROME_PATCH_VER_0200 << 16 ) | ROME_SOC_ID_11 ),
-    ROME_VER_3_0 = ((ROME_PATCH_VER_0300 << 16 ) | ROME_SOC_ID_22 ),
-    ROME_VER_3_2 = ((ROME_PATCH_VER_0302 << 16 ) | ROME_SOC_ID_44 )
+    ROME_VER_1_0 = ((PROD_ID_ROME << 24) | (ROME_BUILD_VER_0100 << 8 ) | SOC_ID_00 ),
+    ROME_VER_1_1 = ((PROD_ID_ROME << 24) | (ROME_BUILD_VER_0101 << 8 ) | SOC_ID_00 ),
+    ROME_VER_1_3 = ((PROD_ID_ROME << 24) | (ROME_BUILD_VER_0200 << 8 ) | SOC_ID_00 ),
+    ROME_VER_2_1 = ((PROD_ID_ROME << 24) | (ROME_BUILD_VER_0200 << 8 ) | SOC_ID_11 ),
+    ROME_VER_3_0 = ((PROD_ID_ROME << 24) | (ROME_BUILD_VER_0300 << 8 ) | SOC_ID_22 ),
+    ROME_VER_3_2 = ((PROD_ID_ROME << 24) | (ROME_BUILD_VER_0302 << 8 ) | SOC_ID_44 ),
+};
+
+enum{
+    CHEROKEE_BUILD_VER_0000   = 0x1100,
+    CHEROKEE_BUILD_VER_0100   = 0x0100,
+    CHEROKEE_BUILD_VER_0101   = 0x0101,
+    CHEROKEE_BUILD_VER_0200   = 0x0200,
+    CHEROKEE_BUILD_VER_0201   = 0x0201,
+    CHEROKEE_BUILD_VER_0300   = 0x0300
+};
+
+enum{
+    QCA_CHEROKEE_SOC_ID_0100  = 0x40010100,
+    QCA_CHEROKEE_SOC_ID_0200  = 0x40010200,
+    QCA_CHEROKEE_SOC_ID_0210  = 0x40010210,
+    QCA_CHEROKEE_SOC_ID_0300  = 0x40010300,
+};
+
+enum{
+    /* FPGA */
+    CHEROKEE_VER_0_0 = ((PROD_ID_CHEROKEE << 24) | (CHEROKEE_BUILD_VER_0000 ) ),
+    CHEROKEE_VER_0_1 = ((PROD_ID_CHEROKEE << 24) | (CHEROKEE_BUILD_VER_0100) | QCA_CHEROKEE_SOC_ID_0100 ),
+    /* Silicon*/
+    CHEROKEE_VER_1_0 = ((PROD_ID_CHEROKEE << 24) | (CHEROKEE_BUILD_VER_0100) ),
+    CHEROKEE_VER_1_1 = ((PROD_ID_CHEROKEE << 24) | (CHEROKEE_BUILD_VER_0101) ),
+    CHEROKEE_VER_2_0 = ((PROD_ID_CHEROKEE << 24) | (CHEROKEE_BUILD_VER_0200) |(QCA_CHEROKEE_SOC_ID_0200)),
+    CHEROKEE_VER_2_1 = ((PROD_ID_CHEROKEE << 24) | (CHEROKEE_BUILD_VER_0201) |(QCA_CHEROKEE_SOC_ID_0210)),
+    CHEROKEE_VER_3_0 = ((PROD_ID_CHEROKEE << 24) | (CHEROKEE_BUILD_VER_0300) |(QCA_CHEROKEE_SOC_ID_0300))
 };
 #endif /* HW_ROME_H */

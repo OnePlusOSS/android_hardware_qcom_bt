@@ -78,6 +78,12 @@ uint8_t userial_to_tcio_baud(uint8_t cfg_baud, uint32_t *baud)
         *baud = B4000000;
     else if (cfg_baud == USERIAL_BAUD_3M)
         *baud = B3000000;
+    else if (cfg_baud == USERIAL_BAUD_3_2M)
+#ifdef B3200000
+        *baud = B3200000;
+#else
+        *baud = BOTHER;
+#endif
     else if (cfg_baud == USERIAL_BAUD_2M)
         *baud = B2000000;
     else if (cfg_baud == USERIAL_BAUD_1M)
@@ -94,17 +100,20 @@ uint8_t userial_to_tcio_baud(uint8_t cfg_baud, uint32_t *baud)
         *baud = B19200;
     else if (cfg_baud == USERIAL_BAUD_9600)
         *baud = B9600;
+    else if (cfg_baud == USERIAL_BAUD_2400)
+        *baud = B2400;
     else if (cfg_baud == USERIAL_BAUD_1200)
         *baud = B1200;
     else if (cfg_baud == USERIAL_BAUD_600)
         *baud = B600;
+    else if (cfg_baud == USERIAL_BAUD_300)
+        *baud = B300;
     else
     {
         ALOGE( "userial vendor open: unsupported baud idx %i", cfg_baud);
         *baud = B115200;
         return FALSE;
     }
-
     return TRUE;
 }
 
@@ -123,11 +132,17 @@ int userial_tcio_baud_to_int(uint32_t baud)
 
     switch (baud)
     {
+        case B300:
+            baud_rate = 300;
+            break;
         case B600:
             baud_rate = 600;
             break;
         case B1200:
             baud_rate = 1200;
+            break;
+        case B2400:
+            baud_rate = 2400;
             break;
         case B9600:
             baud_rate = 9600;
@@ -159,6 +174,13 @@ int userial_tcio_baud_to_int(uint32_t baud)
         case B3000000:
             baud_rate = 3000000;
             break;
+#ifdef B3200000
+        case B3200000:
+#else
+        case BOTHER:
+#endif
+            baud_rate = 3200000;
+            break;
         case B4000000:
             baud_rate = 4000000;
             break;
@@ -166,8 +188,6 @@ int userial_tcio_baud_to_int(uint32_t baud)
             ALOGE( "%s: unsupported baud %d", __FUNCTION__, baud);
             break;
     }
-
-    ALOGI( "%s: Current Baudrate = %d bps", __FUNCTION__, baud_rate);
     return baud_rate;
 }
 
@@ -279,7 +299,8 @@ int userial_vendor_open(tUSERIAL_CFG *p_cfg)
 
     if ((vnd_userial.fd = open(vnd_userial.port_name, O_RDWR|O_NOCTTY)) == -1)
     {
-        ALOGE("userial vendor open: unable to open %s", vnd_userial.port_name);
+        ALOGE("userial vendor open: unable to open %s: %s(%d)", vnd_userial.port_name,
+            strerror(errno), errno);
         return -1;
     }
 
@@ -289,21 +310,48 @@ int userial_vendor_open(tUSERIAL_CFG *p_cfg)
     cfmakeraw(&vnd_userial.termios);
 
     /* Set UART Control Modes */
-    vnd_userial.termios.c_cflag |= CLOCAL;
-    vnd_userial.termios.c_cflag |= (CRTSCTS | stop_bits);
-
+    vnd_userial.termios.c_cflag &= ~(CRTSCTS); /* Clear CTS/RTS flow control bit */
+    vnd_userial.termios.c_cflag |= stop_bits; /* Stop Bit */
+    vnd_userial.termios.c_cflag |= CLOCAL; /* Ignore modem control lines */
+    if (p_cfg->fmt & USERIAL_CTSRTS) {
+        ALOGI("userial vendor open: HW flow control enabled");
+        vnd_userial.termios.c_cflag |= (CRTSCTS); /* Enable CTS/RTS flow control */
+    }
     tcsetattr(vnd_userial.fd, TCSANOW, &vnd_userial.termios);
 
-    /* set input/output baudrate */
-    cfsetospeed(&vnd_userial.termios, baud);
-    cfsetispeed(&vnd_userial.termios, baud);
-    tcsetattr(vnd_userial.fd, TCSANOW, &vnd_userial.termios);
+#ifndef B3200000
+    if(baud == BOTHER) {
+        struct termios2 term2;
+        if (ioctl(vnd_userial.fd, TCGETS2, &term2) == -1) {
+            ALOGE("userial vendor open: TCGETS2 error");
+            return -1;
+        }
+        term2.c_ospeed = term2.c_ispeed = (speed_t) userial_tcio_baud_to_int(baud);
+        term2.c_cflag &= ~CBAUD;
+        term2.c_cflag |= BOTHER;
+        /* Set baud rate immediately */
+        if (ioctl(vnd_userial.fd, TCSETS2, &term2) == -1) {
+            ALOGE("userial vendor open: TCSETS2 error");
+            return -1;
+        }
+        tcsetattr(vnd_userial.fd, TCSANOW, &term2);
+    }
+    else
+#endif
+    {
+        /* set input/output baudrate */
+        cfsetospeed(&vnd_userial.termios, baud);
+        cfsetispeed(&vnd_userial.termios, baud);
+        tcsetattr(vnd_userial.fd, TCSANOW, &vnd_userial.termios);
+    }
 
     tcflush(vnd_userial.fd, TCIOFLUSH);
 
 #if (BT_WAKE_VIA_USERIAL_IOCTL==TRUE)
     userial_ioctl_init_bt_wake(vnd_userial.fd);
 #endif
+
+    userial_vendor_get_baud();
 
     ALOGI("device fd = %d open", vnd_userial.fd);
 
@@ -353,13 +401,35 @@ void userial_vendor_set_baud(uint8_t userial_baud)
     uint32_t tcio_baud;
 
     VNDUSERIALDBG("## userial_vendor_set_baud: %d", userial_baud);
-
     userial_to_tcio_baud(userial_baud, &tcio_baud);
+#ifndef B3200000
+    if(tcio_baud == BOTHER)
+    {
+        struct termios2 term2;
+        if (ioctl(vnd_userial.fd, TCGETS2, &term2) == -1) {
+            ALOGE("userial vendor open: TCGETS2 error");
+            return;
+        }
 
-    cfsetospeed(&vnd_userial.termios, tcio_baud);
-    cfsetispeed(&vnd_userial.termios, tcio_baud);
-    tcsetattr(vnd_userial.fd, TCSADRAIN, &vnd_userial.termios); /* don't change speed until last write done */
-//    tcflush(vnd_userial.fd, TCIOFLUSH);
+        term2.c_ospeed = term2.c_ispeed = (speed_t) userial_tcio_baud_to_int(tcio_baud);
+        term2.c_cflag &= ~CBAUD;
+        term2.c_cflag |= BOTHER;
+
+        /* Set baud rate, but not changed until last write is done */
+        if (ioctl(vnd_userial.fd, TCSETSW2, &term2) == -1) {
+            ALOGE("userial vendor open: TCSETSW2 error");
+            return;
+        }
+    }
+    else
+#endif
+    {
+        /* set input/output baudrate */
+        cfsetospeed(&vnd_userial.termios, tcio_baud);
+        cfsetispeed(&vnd_userial.termios, tcio_baud);
+        /* don't change speed until last write done */
+        tcsetattr(vnd_userial.fd, TCSADRAIN, &vnd_userial.termios);
+    }
 }
 
 /*******************************************************************************
@@ -373,13 +443,15 @@ void userial_vendor_set_baud(uint8_t userial_baud)
 *******************************************************************************/
 int userial_vendor_get_baud(void)
 {
+    int baud_rate;
     if (vnd_userial.fd == -1)
     {
         ALOGE( "%s: uart port(%s) has not been opened", __FUNCTION__, BT_HS_UART_DEVICE );
         return -1;
     }
-
-    return userial_tcio_baud_to_int(cfgetispeed(&vnd_userial.termios));
+    baud_rate = userial_tcio_baud_to_int(cfgetispeed(&vnd_userial.termios));
+    ALOGI( "%s: Current Baudrate = %d bps", __FUNCTION__, baud_rate);
+    return baud_rate;
 }
 
 /*******************************************************************************
