@@ -40,7 +40,7 @@
 #include "hw_rome.h"
 #include "bt_vendor_lib.h"
 #define WAIT_TIMEOUT 200000
-#define BT_VND_OP_GET_LINESPEED 12
+#define BT_VND_OP_GET_LINESPEED 30
 
 #ifdef PANIC_ON_SOC_CRASH
 #define BT_VND_FILTER_START "wc_transport.start_root"
@@ -50,7 +50,7 @@
 
 #define CMD_TIMEOUT  0x22
 
-static void wait_for_patch_download(bool is_ant_req);
+static void wait_for_patch_download(bool is_ant_fm_req);
 static bool is_debug_force_special_bytes(void);
 
 /******************************************************************************
@@ -71,6 +71,7 @@ extern int chipset_ver;
 int pFd[2] = {0,};
 #if (BT_SOC_TYPE_ROME ||BT_SOC_TYPE_CHEROKEE)
 int ant_fd;
+int fm_fd;
 #endif
 bt_vendor_callbacks_t *bt_vendor_cbacks = NULL;
 uint8_t vnd_local_bd_addr[6]={0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
@@ -269,8 +270,8 @@ bool can_perform_action(char action) {
         }
 
         if (value == 1)
-           can_perform = true;
-        else if (value > 2)
+            can_perform = true;
+        else if (value > 3)
            return false;
     }
     else {
@@ -542,8 +543,11 @@ static int init(const bt_vendor_callbacks_t* p_cb, unsigned char *local_bdaddr)
         case BT_SOC_CHEROKEE:
         case BT_SOC_ROME:
         case BT_SOC_AR3K:
-            ALOGI("bt-vendor : Initializing UART transport layer");
-            userial_vendor_init();
+            ALOGI("bt-vendor : check soc initialized ");
+            if (!is_soc_initialized()) {
+                ALOGI("bt-vendor : Initializing UART transport layer");
+                userial_vendor_init();
+            }
             break;
         case BT_SOC_DEFAULT:
             break;
@@ -652,6 +656,7 @@ static int op(bt_vendor_opcode_t opcode, void *param)
     int nCnt = 0;
     int nState = -1;
     bool is_ant_req = false;
+    bool is_fm_req = false;
     char wipower_status[PROPERTY_VALUE_MAX];
     char emb_wp_mode[PROPERTY_VALUE_MAX];
     char bt_version[PROPERTY_VALUE_MAX];
@@ -668,6 +673,14 @@ static int op(bt_vendor_opcode_t opcode, void *param)
 
     switch(opcode_init)
     {
+        case FM_VND_OP_POWER_CTRL:
+            {
+              is_fm_req = true;
+              if (is_soc_initialized()) {
+                  // add any FM specific actions  if needed in future
+                  break;
+              }
+            }
         case BT_VND_OP_POWER_CTRL:
             {
                 nState = *(int *) param;
@@ -740,9 +753,14 @@ static int op(bt_vendor_opcode_t opcode, void *param)
         case BT_VND_OP_ANT_USERIAL_OPEN:
                 ALOGI("bt-vendor : BT_VND_OP_ANT_USERIAL_OPEN");
                 is_ant_req = true;
-                //fall through
+                goto userial_open;
 #endif
 #endif
+        case BT_VND_OP_FM_USERIAL_OPEN:
+                ALOGI("bt-vendor : BT_VND_OP_FM_USERIAL_OPEN");
+                is_fm_req = true;
+                goto userial_open;
+userial_open:
         case BT_VND_OP_USERIAL_OPEN:
             {
                 int (*fd_array)[] = (int (*)[]) param;
@@ -791,42 +809,45 @@ static int op(bt_vendor_opcode_t opcode, void *param)
                     case BT_SOC_CHEROKEE:
                         {
                             /* Cherokee need to wake up first through UART Tx line */
-                            int len;
-                            char reset_val = 0xFC;
-                            fd = userial_vendor_open((tUSERIAL_CFG *) &bt_reset_cfg);
-                            if (fd < 0) {
-                                ALOGE("userial_vendor_open returns err");
-                                retval = -1;
-                            } else {
-                                /* Clock on */
-                                userial_clock_operation(fd, USERIAL_OP_CLK_ON);
-                                ALOGD("userial clock on");
-
-                                /* Give some delay before clock and uart driver is ramping up and ready */
-                                usleep(200); /* 200 us delay */
-
-                                /* UART TxD control as BT Reset*/
-                                /* 0xFC = 3 bits = 8.6 us *3 =  25.8us */
-                                len = write(fd, &reset_val, 1);
-                                if (len != 1 ) {
-                                    ALOGE("%s: Send failed with ret value: %d", __FUNCTION__, len);
+                            if (!is_soc_initialized()) {
+                                wait_for_patch_download(is_ant_req | is_fm_req);
+                                int len;
+                                char reset_val = 0xFC;
+                                fd = userial_vendor_open((tUSERIAL_CFG *) &bt_reset_cfg);
+                                if (fd < 0) {
+                                    ALOGE("userial_vendor_open returns err");
                                     retval = -1;
-                                    break;
-                                }
+                                } else {
+                                    /* Clock on */
+                                    userial_clock_operation(fd, USERIAL_OP_CLK_ON);
+                                    ALOGD("userial clock on");
 
-                                /* Clock off */
-                                userial_clock_operation(fd, USERIAL_OP_CLK_ON);
+                                    /* Give some delay before clock and uart driver is ramping up and ready */
+                                    usleep(200); /* 200 us delay */
 
-                                /* Close uart port for the reset handler */
-                                userial_vendor_close();
+                                    /* UART TxD control as BT Reset*/
+                                    /* 0xFC = 3 bits = 8.6 us *3 =  25.8us */
+                                    len = write(fd, &reset_val, 1);
+                                    if (len != 1 ) {
+                                        ALOGE("%s: Send failed with ret value: %d", __FUNCTION__, len);
+                                        retval = -1;
+                                        break;
+                                    }
 
-                                /* For Cherokee, it need to wait for 100ms */
-                                usleep(100*1000);
+                                    /* Clock off */
+                                    userial_clock_operation(fd, USERIAL_OP_CLK_ON);
+
+                                    /* Close uart port for the reset handler */
+                                    userial_vendor_close();
+
+                                    /* For Cherokee, it need to wait for 100ms */
+                                    usleep(100*1000);
+			        }
                             }
                         }
                     case BT_SOC_ROME:
                         {
-                            wait_for_patch_download(is_ant_req);
+                            wait_for_patch_download(is_ant_req | is_fm_req);
                             property_get("ro.bluetooth.emb_wp_mode", emb_wp_mode, false);
                             if (!is_soc_initialized()) {
                                 char* dlnd_inprog = is_ant_req ? "ant" : "bt";
@@ -916,6 +937,11 @@ static int op(bt_vendor_opcode_t opcode, void *param)
                                          ALOGV("connect to ant channel");
                                          ant_fd = fd_filter = connect_to_local_socket("ant_sock");
                                      }
+                                     else if (is_fm_req && (btSocType >=BT_SOC_ROME && btSocType
+                                              < BT_SOC_RESERVED)) {
+                                              ALOGI("%s: connect to fm channel", __func__);
+                                              fm_fd = fd_filter = connect_to_local_socket("fm_sock");
+                                     }
                                      else
 #endif
                                      {
@@ -924,9 +950,9 @@ static int op(bt_vendor_opcode_t opcode, void *param)
                                      }
 
                                      if (fd_filter != -1) {
-                                         ALOGV("%s: received the socket fd: %d is_ant_req: %d\n",
-                                                                     __func__, fd_filter, is_ant_req);
-                                         if((strcmp(emb_wp_mode, "true") == 0) && !is_ant_req) {
+                                         ALOGV("%s: received the socket fd: %d is_ant_req: %d is_fm_req :%d\n",
+                                             __func__, fd_filter, is_ant_req,is_fm_req);
+                                         if((strcmp(emb_wp_mode, "true") == 0) && !is_ant_req && !is_fm_req) {
                                              if (chipset_ver >= ROME_VER_3_0) {
                                                  /*  get rome supported feature request */
                                                  ALOGE("%s: %x08 %0x", __FUNCTION__,chipset_ver, ROME_VER_3_0);
@@ -935,7 +961,7 @@ static int op(bt_vendor_opcode_t opcode, void *param)
                                          }
                                          if (!skip_init) {
                                              /*Skip if already sent*/
-                                             enable_controller_log(fd_filter, is_ant_req);
+                                             enable_controller_log(fd_filter, (is_ant_req || is_fm_req));
                                              skip_init = true;
                                          }
 
@@ -948,6 +974,8 @@ static int op(bt_vendor_opcode_t opcode, void *param)
                                      else {
                                          if (is_ant_req)
                                              ALOGE("Unable to connect to ANT Server Socket!!!");
+                                         else if (is_fm_req)
+                                             ALOGE("Unable to connect to FM Server Socket!!!");
                                          else
                                              ALOGE("Unable to connect to BT Server Socket!!!");
                                          retval = -1;
@@ -981,6 +1009,17 @@ static int op(bt_vendor_opcode_t opcode, void *param)
             }
             break;
 #endif
+        case BT_VND_OP_FM_USERIAL_CLOSE:
+            {
+                ALOGI("bt-vendor : BT_VND_OP_FM_USERIAL_CLOSE");
+                property_set("wc_transport.clean_up","1");
+                if (fm_fd != -1) {
+                    ALOGE("closing fm_fd");
+                    close(fm_fd);
+                    fm_fd = -1;
+                }
+            }
+            break;
 #endif
         case BT_VND_OP_USERIAL_CLOSE:
             {
@@ -1201,8 +1240,9 @@ static void ssr_cleanup(int reason) {
         op(BT_VND_OP_ANT_USERIAL_CLOSE, NULL);
 #endif
 #endif
-        /*Close both BT channel*/
+        /*Close both BT and FM channel*/
         op(BT_VND_OP_USERIAL_CLOSE, NULL);
+        op(BT_VND_OP_FM_USERIAL_CLOSE, NULL);
         /*CTRL OFF twice to make sure hw
          * turns off*/
 #ifdef ENABLE_ANT
@@ -1231,18 +1271,22 @@ static void cleanup( void )
 /* Check for one of the cients ANT/BT patch download is already in
 ** progress if yes wait till complete
 */
-void wait_for_patch_download(bool is_ant_req) {
+void wait_for_patch_download(bool is_ant_fm_req) {
     ALOGV("%s:", __FUNCTION__);
     char inProgress[PROPERTY_VALUE_MAX] = {'\0'};
     while (1) {
         property_get("wc_transport.patch_dnld_inprog", inProgress, "null");
 
-        if(is_ant_req && !strcmp(inProgress,"bt") ) {
+        if(is_ant_fm_req && !(strcmp(inProgress,"bt")|| strcmp(inProgress,"fm")) ) {
            //ANT request, wait for BT to finish
            usleep(50000);
         }
-        else if(!is_ant_req && !strcmp(inProgress,"ant") ) {
-           //BT request, wait for ANT to finish
+        else if(!is_ant_fm_req && !(strcmp(inProgress,"ant")|| strcmp(inProgress,"fm")) ) {
+          //BT request, wait for ANT to finish
+           usleep(50000);
+        }
+        else if(is_ant_fm_req && !(strcmp(inProgress,"bt") || strcmp(inProgress,"ant")) ) {
+           //FM request, wait for ANT or BT to finish
            usleep(50000);
         }
         else {
