@@ -86,6 +86,8 @@ int userial_vendor_get_baud(void);
 int readTrpState();
 void lpm_set_ar3k(uint8_t pio, uint8_t action, uint8_t polarity);
 
+pthread_mutex_t m_lock = PTHREAD_MUTEX_INITIALIZER;
+
 static const tUSERIAL_CFG userial_init_cfg =
 {
     (USERIAL_DATABITS_8 | USERIAL_PARITY_NONE | USERIAL_STOPBITS_1),
@@ -681,7 +683,10 @@ static int op(bt_vendor_opcode_t opcode, void *param)
                     case BT_SOC_ROME:
                     case BT_SOC_AR3K:
                         /* BT Chipset Power Control through Device Tree Node */
-                        retval = bt_powerup(nState);
+                        if(!pthread_mutex_lock(&m_lock)) {
+                            retval = bt_powerup(nState);
+                            pthread_mutex_unlock(&m_lock);
+                        }
                     default:
                         break;
                 }
@@ -915,11 +920,14 @@ static int op(bt_vendor_opcode_t opcode, void *param)
         case BT_VND_OP_ANT_USERIAL_CLOSE:
             {
                 ALOGI("bt-vendor : BT_VND_OP_ANT_USERIAL_CLOSE");
-                property_set("wc_transport.clean_up","1");
-                if (ant_fd != -1) {
-                    ALOGE("closing ant_fd");
-                    close(ant_fd);
-                    ant_fd = -1;
+                if(!pthread_mutex_lock(&m_lock)) {
+                    property_set("wc_transport.clean_up","1");
+                    if (ant_fd != -1) {
+                        ALOGE("closing ant_fd");
+                        close(ant_fd);
+                        ant_fd = -1;
+                    }
+                    pthread_mutex_unlock(&m_lock);
                 }
             }
             break;
@@ -936,8 +944,11 @@ static int op(bt_vendor_opcode_t opcode, void *param)
 
                      case BT_SOC_ROME:
                      case BT_SOC_AR3K:
-                        property_set("wc_transport.clean_up","1");
-                        userial_vendor_close();
+                        if(!pthread_mutex_lock(&m_lock)) {
+                            property_set("wc_transport.clean_up","1");
+                            userial_vendor_close();
+                            pthread_mutex_unlock(&m_lock);
+                        }
                         break;
                     default:
                         ALOGE("Unknown btSocType: 0x%x", btSocType);
@@ -1126,7 +1137,10 @@ static void ssr_cleanup(int reason) {
 static void cleanup( void )
 {
     ALOGI("cleanup");
-    bt_vendor_cbacks = NULL;
+    if(!pthread_mutex_lock(&m_lock)) {
+        bt_vendor_cbacks = NULL;
+        pthread_mutex_unlock(&m_lock);
+    }
 
 #ifdef WIFI_BT_STATUS_SYNC
     isInit = 0;
