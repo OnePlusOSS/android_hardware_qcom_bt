@@ -18,31 +18,29 @@
 
 #ifndef HCI_UART_H
 #define HCI_UART_H
-#include "hw_rome.h"
 
 /* Variables to identify the platform */
 /*BT HS UART TTY DEVICE */
 #define BT_HS_UART_DEVICE "/dev/ttyHS0"
 
 /**** baud rates ****/
-#define USERIAL_BAUD_300        BAUDRATE_300
-#define USERIAL_BAUD_600        BAUDRATE_600
-#define USERIAL_BAUD_1200       BAUDRATE_1200
-#define USERIAL_BAUD_2400       BAUDRATE_2400
-#define USERIAL_BAUD_9600       BAUDRATE_9600
-#define USERIAL_BAUD_19200      BAUDRATE_19200
-#define USERIAL_BAUD_57600      BAUDRATE_57600
-#define USERIAL_BAUD_115200     BAUDRATE_115200
-#define USERIAL_BAUD_230400     BAUDRATE_230400
-#define USERIAL_BAUD_460800     BAUDRATE_460800
-#define USERIAL_BAUD_921600     BAUDRATE_921600
-#define USERIAL_BAUD_1M               BAUDRATE_1000000
-#define USERIAL_BAUD_1_5M       BAUDRATE_1500000
-#define USERIAL_BAUD_2M         BAUDRATE_2000000
-#define USERIAL_BAUD_3M         BAUDRATE_3000000
-#define USERIAL_BAUD_3_2M         BAUDRATE_3200000
-#define USERIAL_BAUD_4M         BAUDRATE_4000000
-#define USERIAL_BAUD_AUTO       BAUDRATE_AUTO
+#define USERIAL_BAUD_300        0
+#define USERIAL_BAUD_600        1
+#define USERIAL_BAUD_1200       2
+#define USERIAL_BAUD_2400       3
+#define USERIAL_BAUD_9600       4
+#define USERIAL_BAUD_19200      5
+#define USERIAL_BAUD_57600      6
+#define USERIAL_BAUD_115200     7
+#define USERIAL_BAUD_230400     8
+#define USERIAL_BAUD_460800     9
+#define USERIAL_BAUD_921600     10
+#define USERIAL_BAUD_1M         11
+#define USERIAL_BAUD_1_5M       12
+#define USERIAL_BAUD_2M         13
+#define USERIAL_BAUD_3M         14
+#define USERIAL_BAUD_4M         15
+#define USERIAL_BAUD_AUTO       16
 
 /**** Data Format ****/
 /* Stop Bits */
@@ -60,9 +58,6 @@
 #define USERIAL_DATABITS_6      (1<<7)
 #define USERIAL_DATABITS_7      (1<<8)
 #define USERIAL_DATABITS_8      (1<<9)
-
-/* Flow control */
-#define USERIAL_CTSRTS               (1<<15)
 
 /* HCI Packet types */
 #define HCI_COMMAND_PKT     0x01
@@ -215,17 +210,6 @@ void userial_vendor_close(void);
 **
 *******************************************************************************/
 void userial_vendor_set_baud(uint8_t userial_baud);
-
-/*******************************************************************************
-**
-** Function        userial_vendor_get_baud
-**
-** Description     Get current baud rate
-**
-** Returns         int
-**
-*******************************************************************************/
-int userial_vendor_get_baud(void);
 
 /*******************************************************************************
 **
