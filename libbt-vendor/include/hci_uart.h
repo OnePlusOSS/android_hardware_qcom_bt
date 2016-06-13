@@ -19,6 +19,8 @@
 #ifndef HCI_UART_H
 #define HCI_UART_H
 
+#include <asm-generic/ioctls.h>
+
 /* Variables to identify the platform */
 /*BT HS UART TTY DEVICE */
 #define BT_HS_UART_DEVICE "/dev/ttyHS0"
@@ -90,9 +92,11 @@
 #endif // (BT_WAKE_VIA_USERIAL_IOCTL==TRUE)
 
 /* UART CLOCK IOCTLS*/
-#define USERIAL_OP_CLK_ON 0x5441
-#define USERIAL_OP_CLK_OFF 0x5442
-#define USERIAL_OP_CLK_STATE 0x5443
+/* UART CLOCK IOCTLS*/
+#define USERIAL_OP_CLK_ON    TIOCPMGET    /* PM get */
+#define USERIAL_OP_CLK_OFF    TIOCPMPUT   /* PM put */
+#define USERIAL_OP_CLK_STATE    TIOCPMACT    /* PM is active */
+
 /******************************************************************************
 **  Type definitions
 ******************************************************************************/
