@@ -264,15 +264,16 @@ bool can_perform_action(char action) {
         if (value == 1)
             can_perform = true;
         else if (value > 3)
-           return false;
+            return false;
     }
     else {
         ALOGV("%s: off : value is: %d", __func__, value);
-        value--;
-        if (value == 0)
-           can_perform = true;
-        else if (value < 0)
-           return false;
+        if (--value <= 0) {
+            ALOGE("%s: BT turn off twice before BT On(ref_count=%d)\n",
+                    __func__, value);
+            value = 0;
+            can_perform = true;
+        }
     }
 
     snprintf(ref_count, 3, "%d", value);
