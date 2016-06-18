@@ -949,68 +949,66 @@ userial_open:
                                     property_set("wc_transport.soc_initialized", "1");
                                     skip_init = false;
                                 }
-
+                            }
                             if (property_set("wc_transport.patch_dnld_inprog", "null") < 0) {
                                 ALOGE("%s: Failed to set property", __FUNCTION__);
                             }
 
-                                property_set("wc_transport.clean_up","0");
-                                if (retval != -1) {
+                            property_set("wc_transport.clean_up","0");
+                            if (retval != -1) {
 
-                                    retval = start_hci_filter();
-                                    if (retval < 0) {
-                                        ALOGE("%s: WCNSS_FILTER wouldn't have started in time\n", __func__);
-                                    } else {
+                                retval = start_hci_filter();
+                                if (retval < 0) {
+                                    ALOGE("%s: WCNSS_FILTER wouldn't have started in time\n", __func__);
+                                } else {
 #ifdef ENABLE_ANT
-                                        if (is_ant_req) {
-                                            ALOGI("%s: connect to ant channel", __func__);
-                                            ant_fd = fd_filter = connect_to_local_socket("ant_sock");
-                                        }
-                                        else
+                                    if (is_ant_req) {
+                                        ALOGI("%s: connect to ant channel", __func__);
+                                        ant_fd = fd_filter = connect_to_local_socket("ant_sock");
+                                    }
+                                    else
 #endif
-                                        {
-                                            ALOGI("%s: connect to bt channel", __func__);
-                                            vnd_userial.fd = fd_filter = connect_to_local_socket("bt_sock");
-                                        }
+                                    {
+                                        ALOGI("%s: connect to bt channel", __func__);
+                                        vnd_userial.fd = fd_filter = connect_to_local_socket("bt_sock");
+                                    }
 
-                                        if (fd_filter != -1) {
-                                            ALOGI("%s: received the socket fd: %d is_ant_req: %d is_fm_req: %d\n",
-                                                                 __func__, fd_filter, is_ant_req,is_fm_req);
-
-                                            if((strcmp(emb_wp_mode, "true") == 0) && !is_ant_req && !is_fm_req) {
-                                                if (chipset_ver >= ROME_VER_3_0) {
+                                    if (fd_filter != -1) {
+                                        ALOGI("%s: received the socket fd: %d is_ant_req: %d is_fm_req: %d\n",
+                                                             __func__, fd_filter, is_ant_req,is_fm_req);
+                                        if((strcmp(emb_wp_mode, "true") == 0) && !is_ant_req && !is_fm_req) {
+                                             if (chipset_ver >= ROME_VER_3_0) {
                                                 /* get rome supported feature request */
                                                 ALOGE("%s: %x08 %0x", __FUNCTION__,chipset_ver, ROME_VER_3_0);
                                                 rome_get_addon_feature_list(fd_filter);
-                                                }
                                             }
-                                            if (!skip_init) {
-                                                /*Skip if already sent*/
-                                                enable_controller_log(fd_filter, (is_ant_req || is_fm_req) );
-                                                skip_init = true;
-                                            }
-                                            for (idx=0; idx < CH_MAX; idx++)
-                                                (*fd_array)[idx] = fd_filter;
+                                        }
+                                        if (!skip_init) {
+                                            /*Skip if already sent*/
+                                            enable_controller_log(fd_filter, (is_ant_req || is_fm_req) );
+                                            skip_init = true;
+                                        }
+                                        for (idx=0; idx < CH_MAX; idx++)
+                                            (*fd_array)[idx] = fd_filter;
                                             retval = 1;
-                                        }
-                                        else {
-                                            if (is_ant_req)
-                                                ALOGE("Unable to connect to ANT Server Socket!!!");
-                                            else
-                                                ALOGE("Unable to connect to BT Server Socket!!!");
-                                            retval = -1;
-                                        }
-                                   }
-                                } else {
-                                    if (btSocType == BT_SOC_ROME)
-                                        ALOGE("Failed to initialize ROME Controller!!!");
+                                    }
+                                    else {
+                                        if (is_ant_req)
+                                            ALOGE("Unable to connect to ANT Server Socket!!!");
+                                        else
+                                            ALOGE("Unable to connect to BT Server Socket!!!");
+                                        retval = -1;
+                                    }
                                 }
+                            } else {
+                                if (btSocType == BT_SOC_ROME)
+                                    ALOGE("Failed to initialize ROME Controller!!!");
+                            }
 
-                                if (fd >= 0) {
-                                    userial_clock_operation(fd, USERIAL_OP_CLK_OFF);
-                                    /*Close the UART port*/
-                                    close(fd);
-                                }
+                            if (fd >= 0) {
+                                userial_clock_operation(fd, USERIAL_OP_CLK_OFF);
+                                 /*Close the UART port*/
+                                 close(fd);
                             }
                         }
                         break;
@@ -1229,7 +1227,7 @@ userial_open:
                 if(!is_soc_initialized()) {
                      ALOGE("BT_VND_OP_GET_LINESPEED: error"
                          " - transport driver not initialized!");
-                     break; 
+                     break;
                 }
 
                 switch(btSocType)
