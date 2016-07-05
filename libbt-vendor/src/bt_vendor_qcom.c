@@ -617,7 +617,7 @@ static int init(const bt_vendor_callbacks_t* p_cb, unsigned char *local_bdaddr)
                                                 vnd_local_bd_addr[5]);
 
     /*Update the property here so that It can be fetched at wcnss_filter*/
-    sprintf(address, "%02x:%02x:%02x:%02x:%02x:%02x",
+    snprintf(address, sizeof(address), "%02x:%02x:%02x:%02x:%02x:%02x",
                                            vnd_local_bd_addr[0],
                                            vnd_local_bd_addr[1],
                                            vnd_local_bd_addr[2],
