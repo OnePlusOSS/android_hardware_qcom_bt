@@ -43,7 +43,7 @@
 #define BT_VND_OP_GET_LINESPEED 30
 
 #define STOP_WCNSS_FILTER 0xDD
-#define STOP_WAIT_TIMEOUT 100
+#define STOP_WAIT_TIMEOUT   1000
 
 #define SOC_INIT_PROPERTY "wc_transport.soc_initialized"
 
@@ -281,35 +281,39 @@ void stop_hci_filter() {
 
        ALOGV("%s: Entry ", __func__);
 
-       property_get(BT_VND_FILTER_START, value, "false");
-
-       if (strcmp(value, "false") == 0) {
-           ALOGI("%s: hci_filter has been stopped already", __func__);
-//           return;
-       }
        if ((soc_type = get_bt_soc_type()) == BT_SOC_CHEROKEE) {
-           filter_ctrl = connect_to_local_socket("wcnssfilter_ctrl");
-           if (filter_ctrl < 0) {
-               ALOGI("%s: Error while connecting to CTRL_SOCK, filter should stopped: %d", __func__, filter_ctrl);
-               //Ignore and fallback
-           } else {
-               retval = write(filter_ctrl, &stop_val, 1);
-               if (retval != 1) {
-                   ALOGI("%s: problem writing to CTRL_SOCK, ignore: %d", __func__, retval);
-               //Ignore and fallback
+           property_get("wc_transport.hci_filter_status", value, "0");
+           if (strcmp(value, "0") == 0) {
+               ALOGI("%s: hci_filter has been stopped already", __func__);
+           }
+           else {
+               filter_ctrl = connect_to_local_socket("wcnssfilter_ctrl");
+               if (filter_ctrl < 0) {
+                   ALOGI("%s: Error while connecting to CTRL_SOCK, filter should stopped: %d",
+                          __func__, filter_ctrl);
+               }
+               else {
+                   retval = write(filter_ctrl, &stop_val, 1);
+                   if (retval != 1) {
+                       ALOGI("%s: problem writing to CTRL_SOCK, ignore: %d", __func__, retval);
+                       //Ignore and fallback
+                   }
+
+                   close(filter_ctrl);
                }
            }
 
            /* Ensure Filter is closed by checking the status before
               RFKILL 0 operation. this should ideally comeout very
               quick */
-           for(i=0; i<5; i++) {
-               property_get("wc_transport.hci_filter_status", value, "0");
-               if (strcmp(value, "0") == 0) {
+           for(i=0; i<500; i++) {
+               property_get(BT_VND_FILTER_START, value, "false");
+               if (strcmp(value, "false") == 0) {
                    ALOGI("%s: WCNSS_FILTER stopped", __func__);
+                   usleep(STOP_WAIT_TIMEOUT * 10);
                    break;
                } else {
-                   /*sleep of 100ms, This should give enough time for FILTER to
+                   /*sleep of 1ms, This should give enough time for FILTER to
                    exit with all necessary cleanup*/
                    usleep(STOP_WAIT_TIMEOUT);
                }
