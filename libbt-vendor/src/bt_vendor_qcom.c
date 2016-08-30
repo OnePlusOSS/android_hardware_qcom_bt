@@ -1335,9 +1335,6 @@ static void ssr_cleanup(int reason)
 #ifdef ENABLE_ANT
         __op(BT_VND_OP_POWER_CTRL, &pwr_state);
 #endif
-#ifdef FM_OVER_UART
-        __op(BT_VND_OP_POWER_CTRL, &pwr_state);
-#endif
     }
     /*Generally switching of chip should be enough*/
     __op(BT_VND_OP_POWER_CTRL, &pwr_state);
