@@ -714,9 +714,8 @@ bool is_soc_initialized() {
     return init;
 }
 
-
-/** Requested operations */
-static int op(bt_vendor_opcode_t opcode, void *param)
+/* flavor of op without locks */
+static int __op(bt_vendor_opcode_t opcode, void *param)
 {
     int retval = BT_STATUS_SUCCESS;
     int nCnt = 0;
@@ -736,12 +735,6 @@ static int op(bt_vendor_opcode_t opcode, void *param)
     bool skip_init = true;
     int  opcode_init = opcode;
     ALOGV("++%s opcode %d", __FUNCTION__, opcode);
-    pthread_mutex_lock(&q_lock);
-    if (!q) {
-        ALOGE("op called with NULL context");
-        retval = -BT_STATUS_INVAL;
-        goto out;
-    }
 
     switch(opcode_init)
     {
@@ -1258,9 +1251,25 @@ userial_open:
     }
 
 out:
-    pthread_mutex_unlock(&q_lock);
     ALOGV("--%s", __FUNCTION__);
     return retval;
+}
+
+static int op(bt_vendor_opcode_t opcode, void *param)
+{
+    int ret;
+    ALOGV("++%s", __FUNCTION__);
+    pthread_mutex_lock(&q_lock);
+    if (!q) {
+        ALOGE("op called with NULL context");
+        ret = -BT_STATUS_INVAL;
+        goto out;
+    }
+    ret = __op(opcode, param);
+out:
+    pthread_mutex_unlock(&q_lock);
+    ALOGV("--%s ret = 0x%x", __FUNCTION__, ret);
+    return ret;
 }
 
 static void ssr_cleanup(int reason)
@@ -1274,8 +1283,7 @@ static void ssr_cleanup(int reason)
     pthread_mutex_lock(&q_lock);
     if (!q) {
         ALOGE("ssr_cleanup called with NULL context");
-        pthread_mutex_unlock(&q_lock);
-        return;
+        goto out;
     }
     if (property_set("wc_transport.patch_dnld_inprog", "null") < 0) {
         ALOGE("Failed to set property");
@@ -1295,34 +1303,33 @@ static void ssr_cleanup(int reason)
                  * Then we should send special byte to crash SOC in
                  * WCNSS_Filter, so we do not need to power off UART here.
                  */
-                pthread_mutex_unlock(&q_lock);
-                return;
+                goto out;
             }
         }
-        /* release lock here as op holds lock anyways */
-        pthread_mutex_unlock(&q_lock);
 
         /* Close both ANT channel */
-        op(BT_VND_OP_ANT_USERIAL_CLOSE, NULL);
+        __op(BT_VND_OP_ANT_USERIAL_CLOSE, NULL);
 #endif
         /* Close both BT channel */
-        op(BT_VND_OP_USERIAL_CLOSE, NULL);
+        __op(BT_VND_OP_USERIAL_CLOSE, NULL);
 
 #ifdef FM_OVER_UART
-        op(BT_VND_OP_FM_USERIAL_CLOSE, NULL);
+        __op(BT_VND_OP_FM_USERIAL_CLOSE, NULL);
 #endif
         /*CTRL OFF twice to make sure hw
          * turns off*/
 #ifdef ENABLE_ANT
-        op(BT_VND_OP_POWER_CTRL, &pwr_state);
+        __op(BT_VND_OP_POWER_CTRL, &pwr_state);
 #endif
 #ifdef FM_OVER_UART
-        op(BT_VND_OP_POWER_CTRL, &pwr_state);
+        __op(BT_VND_OP_POWER_CTRL, &pwr_state);
 #endif
     }
     /*Generally switching of chip should be enough*/
-    op(BT_VND_OP_POWER_CTRL, &pwr_state);
+    __op(BT_VND_OP_POWER_CTRL, &pwr_state);
 
+out:
+    pthread_mutex_unlock(&q_lock);
     ALOGI("--%s", __FUNCTION__);
 }
 
