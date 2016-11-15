@@ -1438,6 +1438,9 @@ static bool is_debug_force_special_bytes() {
     int ret = 0;
     char value[PROPERTY_VALUE_MAX] = {'\0'};
     bool enabled = false;
+#ifdef ENABLE_DBG_FLAGS
+    enabled = true;
+#endif
 
     ret = property_get("wc_transport.force_special_byte", value, NULL);
 
