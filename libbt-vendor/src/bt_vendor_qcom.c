@@ -1289,7 +1289,9 @@ static int op(bt_vendor_opcode_t opcode, void *param)
 {
     int ret;
     ALOGV("++%s", __FUNCTION__);
+#ifdef BT_THREADLOCK_SAFE
     pthread_mutex_lock(&q_lock);
+#endif
     if (!q) {
         ALOGE("op called with NULL context");
         ret = -BT_STATUS_INVAL;
@@ -1297,7 +1299,9 @@ static int op(bt_vendor_opcode_t opcode, void *param)
     }
     ret = __op(opcode, param);
 out:
+#ifdef BT_THREADLOCK_SAFE
     pthread_mutex_unlock(&q_lock);
+#endif
     ALOGV("--%s ret = 0x%x", __FUNCTION__, ret);
     return ret;
 }
