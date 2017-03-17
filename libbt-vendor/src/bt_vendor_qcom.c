@@ -1458,10 +1458,10 @@ static bool is_debug_force_special_bytes() {
 }
 
 // Entry point of DLib
+/* Remove 'ssr_cleanup' because it's not defined in 'bt_vendor_interface_t'. */
 const bt_vendor_interface_t BLUETOOTH_VENDOR_LIB_INTERFACE = {
     sizeof(bt_vendor_interface_t),
     init,
     op,
-    cleanup,
-    ssr_cleanup
+    cleanup
 };
