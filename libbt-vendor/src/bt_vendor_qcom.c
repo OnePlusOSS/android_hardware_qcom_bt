@@ -451,6 +451,9 @@ static int bt_powerup(int en )
             return -1;
         }
     }
+    /* Always perform BT power action so as to have the chance to 
+       recover BT power properly from un-expected error. */
+#ifdef CHECK_BT_POWER_PERFORM_ACTION
     if(can_perform_action(on) == false) {
         ALOGE("%s:can't perform action as it is being used by other clients", __func__);
 #ifdef WIFI_BT_STATUS_SYNC
@@ -459,6 +462,9 @@ static int bt_powerup(int en )
 #endif
             goto done;
     }
+#else
+    ALOGI("%s: always perform action", __func__);
+#endif
     ret = asprintf(&enable_ldo_path, "/sys/class/rfkill/rfkill%d/device/extldo", q->rfkill_id);
     if( (ret < 0 ) || (enable_ldo_path == NULL) )
     {
@@ -796,6 +802,16 @@ static int __op(bt_vendor_opcode_t opcode, void *param)
                     case BT_SOC_ROME:
                     case BT_SOC_AR3K:
                     case BT_SOC_CHEROKEE:
+                        if (q->soc_type == BT_SOC_ROME)
+                        {
+                            if (nState == BT_VND_PWR_ON)
+                            {
+                                /* Always power BT off before power on. */
+                                ALOGI("bt-vendor: always power off before power on");
+                                bt_powerup(BT_VND_PWR_OFF);
+                            }
+                        }
+
                         /* BT Chipset Power Control through Device Tree Node */
                         retval = bt_powerup(nState);
                     default:
