@@ -274,6 +274,40 @@ bool can_perform_action(char action) {
     return can_perform;
 }
 
+void kill_hci_filter() {
+    char value[PROPERTY_VALUE_MAX] = {'\0'};
+    char ref_count[PROPERTY_VALUE_MAX];
+    int count, ret;
+
+    property_get("wc_transport.ref_count", ref_count, "0");
+    count = atoi(ref_count);
+    if (count > 0) {
+        ALOGI("%s: there are active clients, not killing", __func__);
+        return;
+    }
+
+    property_get(BT_VND_FILTER_START, value, "false");
+    if (strcmp(value, "true") == 0) {
+        ALOGE("%s: hci_filter is still running, killing it", __func__);
+        /* Setting properties to correct values */
+        ret = property_set("wc_transport.hci_filter_status", "0");
+        if (ret < 0)
+            ALOGE("%s: Error while updating hci_filter_status property: %d\n", __func__, ret);
+
+        ret = property_set("wc_transport.ref_count", 0);
+        if (ret < 0)
+            ALOGE("%s: Error while updating ref_count property: %d\n", __func__, ret);
+
+        ret = property_set(BT_VND_FILTER_START, "false");
+        if (ret < 0)
+            ALOGE("%s: Error while updating start_hci property: %d\n", __func__, ret);
+        else {
+            ALOGI("%s: WCNSS_FILTER stopped", __func__);
+            usleep(STOP_WAIT_TIMEOUT * 10);
+        }
+    }
+}
+
 void stop_hci_filter() {
        char value[PROPERTY_VALUE_MAX] = {'\0'};
        int retval, filter_ctrl, i;
@@ -318,6 +352,7 @@ void stop_hci_filter() {
                usleep(STOP_WAIT_TIMEOUT);
            }
        }
+       kill_hci_filter();
 
        ALOGV("%s: Exit ", __func__);
 }
