@@ -348,7 +348,7 @@ int start_hci_filter() {
            //Filter should have been started OR in the process of initializing
            //Make sure of hci_filter_status and return the state based on it
        } else {
-
+           property_set("wc_transport.clean_up","0");
            property_set("wc_transport.hci_filter_status", "0");
            property_set(BT_VND_FILTER_START, "true");
            ALOGV("%s: %s set to true ", __func__, BT_VND_FILTER_START );
@@ -993,10 +993,12 @@ userial_open:
 
                             property_set("wc_transport.clean_up","0");
                             if (retval != -1) {
-
                                 retval = start_hci_filter();
                                 if (retval < 0) {
                                     ALOGE("%s: WCNSS_FILTER wouldn't have started in time\n", __func__);
+                                    property_set("wc_transport.hci_filter_status", "-1");
+                                    property_set("wc_transport.start_hci", "false");
+                                    bt_powerup(0);
                                 } else {
 #ifdef ENABLE_ANT
                                     if (is_ant_req) {
@@ -1053,9 +1055,16 @@ userial_open:
                         {
                             property_get("ro.bluetooth.emb_wp_mode", emb_wp_mode, false);
                             retval = start_hci_filter();
+
                             if (retval < 0) {
                                 ALOGE("WCNSS_FILTER wouldn't have started in time\n");
-
+                                /*
+                                 Set the following property to -1 so that the SSR cleanup routine
+                                 can reset SOC.
+                                 */
+                                property_set("wc_transport.hci_filter_status", "-1");
+                                property_set("wc_transport.start_hci", "false");
+                                bt_powerup(0);
                             } else {
 #ifdef ENABLE_ANT
                                 if (is_ant_req) {
