@@ -30,8 +30,11 @@ LOCAL_SRC_FILES := \
         src/hw_ar3k.c \
         src/bt_vendor_persist.cpp
 
-#Disable this flag in case if FM over UART support not needed
+# By default, "ENABLE_FM_OVER_UART" is un-defined.
+# To enable the feature, set it as "true" in "BoardConfig.mk".
+ifeq ($(ENABLE_FM_OVER_UART), true)
 LOCAL_CFLAGS := -DFM_OVER_UART
+endif
 
 ifneq (,$(filter userdebug eng,$(TARGET_BUILD_VARIANT)))
 LOCAL_CFLAGS += -DPANIC_ON_SOC_CRASH
