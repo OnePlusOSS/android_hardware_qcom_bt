@@ -78,6 +78,12 @@ LOCAL_MODULE_PATH := $(TARGET_OUT_VENDOR_SHARED_LIBRARIES)
 endif
 
 LOCAL_CFLAGS += -DBT_NV_SUPPORT
+LOCAL_CFLAGS += -Wno-unused-variable
+LOCAL_CFLAGS += -Wno-unused-label
+LOCAL_CFLAGS += -Wno-user-defined-warnings
+LOCAL_CFLAGS += -Wno-unused-parameter
+LOCAL_CFLAGS += -Wno-incompatible-pointer-types-discards-qualifiers
+LOCAL_CFLAGS += -Wno-unused-function
 
 ifneq ($(BOARD_ANT_WIRELESS_DEVICE),)
 LOCAL_CFLAGS += -DENABLE_ANT
