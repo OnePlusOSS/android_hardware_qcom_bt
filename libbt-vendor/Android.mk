@@ -84,6 +84,7 @@ LOCAL_CFLAGS += -Wno-user-defined-warnings
 LOCAL_CFLAGS += -Wno-unused-parameter
 LOCAL_CFLAGS += -Wno-incompatible-pointer-types-discards-qualifiers
 LOCAL_CFLAGS += -Wno-unused-function
+LOCAL_CFLAGS += -Wno-enum-conversion
 
 ifneq ($(BOARD_ANT_WIRELESS_DEVICE),)
 LOCAL_CFLAGS += -DENABLE_ANT
