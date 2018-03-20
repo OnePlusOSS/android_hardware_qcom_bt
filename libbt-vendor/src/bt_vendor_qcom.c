@@ -1367,7 +1367,7 @@ static void ssr_cleanup(int reason)
         }
 
         /* Close both ANT channel */
-        __op(BT_VND_OP_ANT_USERIAL_CLOSE, NULL);
+        __op((bt_vendor_opcode_t)BT_VND_OP_ANT_USERIAL_CLOSE, NULL);
 #endif
         /* Close both BT channel */
         __op(BT_VND_OP_USERIAL_CLOSE, NULL);
