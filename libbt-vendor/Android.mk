@@ -20,6 +20,8 @@ ifeq ($(BOARD_HAVE_BLUETOOTH_QCOM),true)
 
 include $(CLEAR_VARS)
 
+#logging headers
+LOCAL_HEADER_LIBRARIES := libcutils_headers
 
 LOCAL_SRC_FILES := \
         src/bt_vendor_qcom.c \
