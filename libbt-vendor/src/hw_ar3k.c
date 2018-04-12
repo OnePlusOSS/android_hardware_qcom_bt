@@ -109,13 +109,13 @@ struct ps_cfg_entry ps_list[MAX_TAGS];
 int is_bt_soc_ath() {
     int ret = 0;
     char bt_soc_type[PROPERTY_VALUE_MAX];
-    ret = property_get("qcom.bluetooth.soc", bt_soc_type, NULL);
+    ret = property_get("vendor.qcom.bluetooth.soc", bt_soc_type, NULL);
     if (ret != 0) {
-        ALOGI("qcom.bluetooth.soc set to %s\n", bt_soc_type);
+        ALOGI("vendor.qcom.bluetooth.soc set to %s\n", bt_soc_type);
         if (!strncasecmp(bt_soc_type, "ath3k", sizeof("ath3k")))
             return 1;
     } else {
-        ALOGI("qcom.bluetooth.soc not set, so using default.\n");
+        ALOGI("vendor.qcom.bluetooth.soc not set, so using default.\n");
     }
 
     return 0;
