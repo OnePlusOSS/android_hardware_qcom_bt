@@ -48,6 +48,9 @@ extern "C" {
 #include <stdlib.h>
 #include <termios.h>
 #include <string.h>
+#include <string.h>
+#include <unistd.h>
+#include <sys/uio.h>
 
 #include "bt_hci_bdroid.h"
 #include "bt_vendor_qcom.h"

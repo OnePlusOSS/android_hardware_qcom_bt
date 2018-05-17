@@ -30,6 +30,8 @@
 #include <cutils/properties.h>
 #include <fcntl.h>
 #include <termios.h>
+#include <unistd.h>
+#include <pthread.h>
 #include "bt_vendor_qcom.h"
 #include "hci_uart.h"
 #include "hci_smd.h"

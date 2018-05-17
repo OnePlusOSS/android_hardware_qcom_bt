@@ -34,6 +34,7 @@
 #include "bt_vendor_qcom.h"
 #include "hci_uart.h"
 #include <string.h>
+#include <unistd.h>
 
 /******************************************************************************
 **  Constants & Macros

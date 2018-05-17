@@ -33,6 +33,7 @@
 #include "hci_smd.h"
 #include <string.h>
 #include <cutils/properties.h>
+#include <unistd.h>
 
 /*****************************************************************************
 **   Macros & Constants
