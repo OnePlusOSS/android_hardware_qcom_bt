@@ -54,11 +54,11 @@ int hw_config(int nState)
     else
         szReqSt = szState[0];
 
-    if((property_get("bluetooth.status", szBtSocStatus, "") <= 0))
+    if((property_get("vendor.bluetooth.status", szBtSocStatus, "") <= 0))
     {
        if(nState == BT_VND_PWR_ON ) {
           ALOGW("Hw_config: First Time BT on after boot.Starting hciattach daemon BTStatus=%s",szBtSocStatus);
-          if (property_set("bluetooth.hciattach", szReqSt) < 0)
+          if (property_set("vendor.bluetooth.hciattach", szReqSt) < 0)
           {
               ALOGE("Hw_config: Property Setting fail");
               return -1;
@@ -69,7 +69,7 @@ int hw_config(int nState)
           ALOGW("Hw_config: nState = %d", nState);
     } else {
           ALOGW("Hw_config: trigerring hciattach");
-          if (property_set("bluetooth.hciattach", szReqSt) < 0)
+          if (property_set("vendor.bluetooth.hciattach", szReqSt) < 0)
           {
               ALOGE("Hw_config: Property Setting fail");
               return -1;
