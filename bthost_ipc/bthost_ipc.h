@@ -1,7 +1,28 @@
 /******************************************************************************
- *  Copyright (c) 2016-2017, The Linux Foundation. All rights reserved.
+ *  Copyright (C) 2016-2017, The Linux Foundation. All rights reserved.
  *
  *  Not a Contribution
+ *  Redistribution and use in source and binary forms, with or without
+ *  modification, are permitted (subject to the limitations in the
+ *  disclaimer below) provided that the following conditions are met:
+
+     * Redistributions of source code must retain the above copyright
+       notice, this list of conditions and the following disclaimer.
+
+     * Redistributions in binary form must reproduce the above
+       copyright notice, this list of conditions and the following
+       disclaimer in the documentation and/or other materials provided
+       with the distribution.
+
+     * Neither the name of The Linux Foundation nor the names of its
+       contributors may be used to endorse or promote products derived
+       from this software without specific prior written permission.
+
+ *  NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ *  GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ *  HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ *  WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ *  MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
  *****************************************************************************/
 /*****************************************************************************
  *  Copyright (C) 2009-2012 Broadcom Corporation
@@ -101,8 +122,11 @@ struct a2dp_stream_common {
 /*
 codec specific definitions
 */
+#define AUDIO_CODEC_TYPE_CELT         603979776u // 0x24000000UL
+#define ENC_CODEC_TYPE_APTX_DUAL_MONO 570425344u // 0x22000000UL
 #define CODEC_TYPE_SBC 0x00
 #define CODEC_TYPE_AAC 0x02
+#define CODEC_TYPE_CELT 0xEF
 #define NON_A2DP_CODEC_TYPE 0xFF
 #define CODEC_OFFSET 3
 #define VENDOR_ID_OFFSET 4
@@ -123,6 +147,9 @@ codec specific definitions
 #endif
 #ifndef APTX_HD_CODEC_ID
 #define APTX_HD_CODEC_ID 0x24
+#endif
+#ifndef APTX_TWS_CODEC_ID
+#define APTX_TWS_CODEC_ID 0x25
 #endif
 
 #ifndef VENDOR_LDAC
@@ -163,6 +190,7 @@ codec specific definitions
 #define A2D_APTX_CHAN_MASK       0x0F
 #define A2D_APTX_CHAN_STEREO     0x02
 #define A2D_APTX_CHAN_MONO       0x01
+#define A2D_APTX_TWS_CHAN_MODE   0x08
 
 
 /* LDAC bitmask helper */
@@ -195,6 +223,32 @@ codec specific definitions
 
 #define A2DP_DEFAULT_SINK_LATENCY 0
 
+
+// CELT Codec config in order.
+// 7-4 bits of first byte of codec_info element
+#define A2D_CELT_SAMP_FREQ_MASK    0xF0
+#define A2D_CELT_SAMP_FREQ_48      0x10
+#define A2D_CELT_SAMP_FREQ_44      0x20
+#define A2D_CELT_SAMP_FREQ_32      0x40
+// 0-3 bits of first byte of codec_info element
+#define A2D_CELT_CHANNEL_MASK      0x0F
+#define A2D_CELT_CH_MONO           0x01
+#define A2D_CELT_CH_STEREO         0x02
+// 7-4 bits of second byte: frame size
+#define A2D_CELT_FRAME_SIZE_MASK   0xF0
+#define A2D_CELT_FRAME_SIZE_64     0x10
+#define A2D_CELT_FRAME_SIZE_128    0x20
+#define A2D_CELT_FRAME_SIZE_256    0x40
+#define A2D_CELT_FRAME_SIZE_512    0x80
+//0-3 bits of second byte: actual value of complexity
+#define A2D_CELT_COMPLEXITY_MASK   0x0F
+// 7-4 bits of third byte: prediction mode
+#define A2D_CELT_PREDICTION_MODE_MASK   0xF0
+// 0th bit of third byte: vbr flag
+#define A2D_CELT_VBR_MASK         0x01
+
+// next 2 bytes is actual frame size
+// next 1 bytes is actual complexity
 typedef struct {
     uint32_t subband;    /* 4, 8 */
     uint32_t blk_len;    /* 4, 8, 12, 16 */
@@ -226,6 +280,16 @@ struct quality_level_to_bitrate_info {
     uint32_t num_levels;
     struct bit_rate_level_map_t bit_rate_level_map[MAX_LEVELS];
 };
+/* Information about BT APTX encoder configuration
+ * This data is used between audio HAL module and
+ * BT IPC library to configure DSP encoder
+ */
+typedef struct {
+    uint16_t sampling_rate;
+    uint8_t  channels;
+    uint32_t bitrate;
+    uint8_t sync_mode;
+} audio_aptx_tws_encoder_config_t;
 
 /* Information about BT LDAC encoder configuration
  * This data is used between audio HAL module and
@@ -251,6 +315,16 @@ typedef struct {
     uint32_t sampling_rate;
     uint32_t bitrate;
 } audio_aac_encoder_config_t;
+
+typedef struct {
+    uint32_t sampling_rate; /* 32000 - 48000, 48000 */
+    uint16_t channels; /* 1-Mono, 2-Stereo, 2*/
+    uint16_t frame_size; /* 64-128-256-512, 512 */
+    uint16_t complexity; /* 0-10, 1 */
+    uint16_t prediction_mode; /* 0-1-2, 0 */
+    uint16_t vbr_flag; /* 0-1, 0*/
+    uint32_t bitrate; /*32000 - 1536000, 139500*/
+} audio_celt_encoder_config_t;
 
 //HIDL callbacks to invoke callback to BT stack
 typedef void (*bt_ipc_start_stream_req_cb)(void);
