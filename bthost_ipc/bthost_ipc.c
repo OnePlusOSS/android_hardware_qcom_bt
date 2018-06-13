@@ -1378,7 +1378,7 @@ uint16_t audio_get_a2dp_sink_latency()
 
 bool audio_is_scrambling_enabled(void)
 {
-    audio_format_t codec_type;
+    audio_format_t codec_type = AUDIO_FORMAT_DEFAULT;
     int i;
     char value[PROPERTY_VALUE_MAX];
     uint8_t *codec_cfg = NULL;
