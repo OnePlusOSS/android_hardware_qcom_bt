@@ -68,6 +68,7 @@
 #endif
 #define LOG_TAG "bthost_ipc"
 
+bool DEBUG = false;
 static int bt_split_a2dp_enabled = 0;
 /*****************************************************************************
 **  Constants & Macros
@@ -1358,7 +1359,7 @@ int audio_check_a2dp_ready()
 
 uint16_t audio_get_a2dp_sink_latency()
 {
-    ALOGW("%s: state = %s",__func__,dump_a2dp_hal_state(audio_stream.state));
+    ALOGD_IF(DEBUG, "%s: state = %s",__func__,dump_a2dp_hal_state(audio_stream.state));
     pthread_mutex_lock(&audio_stream.lock);
     if (update_initial_sink_latency)
     {
